@@ -4,6 +4,7 @@ import QuestionOntology
 import QuestionOntologyGraphProvider
 import TestQuestionOntology
 import QuestionParser
+import DiffedAssertEqual
 
 
 func t(_ word: String, _ tag: String, _ lemma: String) -> Token {
@@ -14,16 +15,60 @@ func t(_ word: String, _ tag: String, _ lemma: String) -> Token {
 final class QuestionOntologyGraphProviderTests: XCTestCase {
 
     typealias TestQuestionOntology = QuestionOntology<WikidataOntologyMappings>
-    typealias TestGraphProvider = QuestionOntologyGraphProvider<TestQuestionOntology, WikidataOntologyMappings>
+    typealias TestGraphProvider = QuestionOntologyGraphProvider<WikidataOntologyMappings>
 
-    private func newCompiler() -> QuestionCompiler<TestGraphProvider> {
-        let environment = QuestionOntologyEnvironment()
-        let provider = QuestionOntologyGraphProvider(ontology: testQuestionOntology)
+    private func newCompiler() throws -> QuestionCompiler<TestGraphProvider> {
+        let environment = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let provider = try QuestionOntologyGraphProvider(ontology: testQuestionOntology)
         return QuestionCompiler(environment: environment, provider: provider)
     }
 
-    func testExample() throws {
-        let compiler = newCompiler()
-        
+    func testQ1() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(.named([t("died", "VBD", "die")]))
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let isA = testQuestionOntology.properties["isA"]!
+        let died = testQuestionOntology.properties["died"]!
+
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let person = env.newNode()
+            .and(.outgoing(
+                HighLevelLabels.Edge(property: isA),
+                Node(label: HighLevelLabels.Node.`class`(Person))
+            ))
+        let expected = person
+            .outgoing(.init(property: died), env.newNode())
+
+        diffedAssertEqual([expected], result)
+
+    }
+
+    func testQ2() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(.named([
+                t("was", "VBD", "be"),
+                t("born", "VBD", "bear")
+            ]))
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let isA = testQuestionOntology.properties["isA"]!
+        let born = testQuestionOntology.properties["born"]!
+
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let person = env.newNode()
+            .and(.outgoing(
+                HighLevelLabels.Edge(property: isA),
+                Node(label: HighLevelLabels.Node.`class`(Person))
+            ))
+        let expected = person
+            .outgoing(.init(property: born), env.newNode())
+
+        diffedAssertEqual([expected], result)
+
     }
 }

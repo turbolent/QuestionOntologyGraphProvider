@@ -15,6 +15,7 @@ let package = Package(
         .package(url: "https://github.com/turbolent/QuestionOntology.git", .branch("master")),
         .package(url: "https://github.com/turbolent/QuestionCompiler.git", .branch("master")),
         .package(url: "https://github.com/turbolent/ReteEngine.git", from: "0.2.0"),
+        .package(url: "https://github.com/turbolent/Regex.git", from: "0.3.0"),
     ],
     targets: [
         .target(
@@ -23,7 +24,8 @@ let package = Package(
                 "QuestionOntology", 
                 "QuestionCompiler",
                 "ReteEngine",
-                "ParserDescription"
+                "ParserDescription",
+                "Regex"
             ]
         ),
         .testTarget(
