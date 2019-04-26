@@ -35,15 +35,11 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
         let person = env.newNode()
-            .and(.outgoing(
-                HighLevelLabels.Edge(property: isA),
-                Node(label: HighLevelLabels.Node.`class`(Person))
-            ))
+            .outgoing(isA, Person)
         let expected = person
-            .outgoing(.init(property: died), env.newNode())
+            .outgoing(died, env.newNode())
 
         diffedAssertEqual([expected], result)
-
     }
 
     func testQ2() throws {
@@ -69,6 +65,16 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             .outgoing(.init(property: born), env.newNode())
 
         diffedAssertEqual([expected], result)
+extension Node where Labels == HighLevelLabels<WikidataOntologyMappings> {
 
+
+    func isA(_ `class`: Class<WikidataOntologyMappings>) -> Node {
+        let isA = testQuestionOntology.properties["isA"]!
+        return outgoing(isA, `class`)
+    }
+
+    func hasLabel(_ label: String) -> Node {
+        let labelProperty = testQuestionOntology.labelProperty!
+        return outgoing(labelProperty, .string(label))
     }
 }

@@ -44,8 +44,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         }
 
         return .outgoing(
-            .init(property: instanceProperty),
-            Node(label: .class(personClass))
+            instanceProperty,
+            personClass
         )
     }
 
