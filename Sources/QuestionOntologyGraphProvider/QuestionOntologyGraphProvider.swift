@@ -23,14 +23,29 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
     private let personEdge: QuestionOntologyGraphProvider.Edge?
     private let namedPropertyInstruction: TokenInstruction<String>
+    private let inversePropertyInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
         self.ontology = ontology
 
         personEdge =
             QuestionOntologyGraphProvider.makePersonEdge(ontology: ontology)
+
         namedPropertyInstruction =
-            try QuestionOntologyGraphProvider.compileNamedPropertyInstruction(ontology: ontology)
+            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
+                guard case let ._named(pattern) = $0 else {
+                    return nil
+                }
+                return pattern
+            }
+
+        inversePropertyInstruction =
+            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
+                guard case let ._inverse(pattern) = $0 else {
+                    return nil
+                }
+                return pattern
+            }
     }
 
     private static func makePersonEdge(ontology: Ontology)
@@ -49,19 +64,22 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         )
     }
 
-    private static func compileNamedPropertyInstruction(ontology: Ontology)
+    private static func compilePropertyPatternInstruction(
+        ontology: Ontology,
+        filter: (PropertyPattern) -> AnyPattern?
+    )
         throws -> TokenInstruction<String>
     {
-        let namedPropertyInstructions = try ontology.properties.values
+        let instructions = try ontology.properties.values
             .flatMap { property in
                 try property.patterns.compactMap { propertyPattern -> TokenInstruction<String>? in
-                    guard case let ._named(pattern) = propertyPattern else {
+                    guard let pattern = filter(propertyPattern) else {
                         return nil
                     }
                     return try pattern.compile(result: property.identifier)
                 }
             }
-        return compile(instructions: namedPropertyInstructions)
+        return compile(instructions: instructions)
     }
 
     public func makePersonEdge(
@@ -77,7 +95,9 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         name: [Token],
         subject _: Subject,
         env: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
         guard
             let propertyIdentifier = namedPropertyInstruction.match(name),
             let property = ontology.properties[propertyIdentifier]
@@ -85,16 +105,25 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             throw Error.notAvailable
         }
 
-        return .outgoing(.init(property: property), env.newNode())
+        return .outgoing(property, env.newNode())
     }
 
     public func makeInversePropertyEdge(
         name: [Token],
         node: QuestionOntologyGraphProvider.Node,
         context _: EdgeContext,
-        env _: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
-        throw Error.notImplemented
+        env: Env
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
+        guard
+            let propertyIdentifier = inversePropertyInstruction.match(name),
+            let property = ontology.properties[propertyIdentifier]
+        else {
+            throw Error.notAvailable
+        }
+
+        return .incoming(node, property)
     }
 
     public func makeAdjectivePropertyEdge(
@@ -137,7 +166,18 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         filter _: [Token],
         env: Env
     ) throws -> QuestionOntologyGraphProvider.Node {
-        throw Error.notImplemented
+
+        // TODO: find class
+
+        guard let labelProperty = ontology.labelProperty else {
+            throw Error.notAvailable
+        }
+
+        let nameString = name
+            .map { $0.word }
+            .joined(separator: " ")
+        return env.newNode()
+            .outgoing(labelProperty, .string(nameString))
     }
 
     public func makeNumberNode(

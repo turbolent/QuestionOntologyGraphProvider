@@ -52,19 +52,50 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         )
 
         let Person = testQuestionOntology.classes["Person"]!
-        let isA = testQuestionOntology.properties["isA"]!
         let born = testQuestionOntology.properties["born"]!
 
         let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
         let person = env.newNode()
-            .and(.outgoing(
-                HighLevelLabels.Edge(property: isA),
-                Node(label: HighLevelLabels.Node.`class`(Person))
-            ))
+            .isA(Person)
+
         let expected = person
-            .outgoing(.init(property: born), env.newNode())
+            .outgoing(born, env.newNode())
 
         diffedAssertEqual([expected], result)
+    }
+
+    func testQ3() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(
+                .inverseWithFilter(
+                    name: [
+                        t("did", "VBD", "do"),
+                        t("marry", "VB", "marry")
+                    ],
+                    filter: .plain(.named([
+                        t("Obama", "NNP", "obama")
+                    ]))
+                )
+            )
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let person = env.newNode()
+            .isA(Person)
+
+        let obama = env.newNode()
+            .hasLabel("Obama")
+        let expected = person
+            .incoming(obama, hasSpouse)
+
+        diffedAssertEqual([expected], result)
+    }
+
+}
+
 extension Node where Labels == HighLevelLabels<WikidataOntologyMappings> {
 
 

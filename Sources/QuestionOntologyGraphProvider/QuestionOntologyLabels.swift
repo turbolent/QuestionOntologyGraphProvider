@@ -12,6 +12,7 @@ public struct HighLevelLabels<M>: GraphLabels
         case variable(Int)
         case `class`(Class<M>)
         case individual(Individual<M>)
+        case string(String)
     }
 
     public struct Edge: EdgeLabel, Equatable {
