@@ -223,14 +223,52 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         name: [Token],
         node: QuestionOntologyGraphProvider.Node,
         env: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
-        throw Error.notImplemented
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
+        // the returned edge consists of two parts:
+        // 1. an instance-of edge for a class with the given name
+        // 2. a single edge or disjunction of edges to the node,
+        //    labeled with an equivalent property of the class or superclasses
+
+        // find class and create instance-of edge
+        guard
+            let classIdentifier = namedClassInstruction.match(name),
+            let `class` = ontology.classes[classIdentifier]
+        else {
+            throw Error.notAvailable
+        }
+
+        let instanceEdge: Edge = try .isA(`class`)
+
+        // find equivalents with a single, property segment.
+        // recursivly search the superclasses if this class has none
+
+        var currentClass = `class`
+        var equivalentPropertySegments: [PropertySegment<Mappings>]
+        var superClasses: [Class<Mappings>] = []
+
+        repeat {
+            equivalentPropertySegments = currentClass.equivalentPropertySegments
+            superClasses.append(contentsOf: currentClass.superClasses)
+
+            currentClass = superClasses.removeFirst()
+        } while equivalentPropertySegments.isEmpty && !superClasses.isEmpty
+
+        guard !equivalentPropertySegments.isEmpty else {
+            throw Error.notAvailable
+        }
+
+        var edges = equivalentPropertySegments.map { $0.edge(node: node) }
+        edges.append(instanceEdge)
+
+        return .conjunction(edges)
     }
 
     public func makeValueNode(name: [Token], filter: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
-        // find class
+        // find class and create instance-of node
         if
             let classIdentifier = namedClassInstruction.match(name),
             let `class` = ontology.classes[classIdentifier]

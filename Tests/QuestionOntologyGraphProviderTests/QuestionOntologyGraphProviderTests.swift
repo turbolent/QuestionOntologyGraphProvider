@@ -168,4 +168,56 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         diffedAssertEqual([expected], result)
     }
 
+    func testQ6() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .relationship(
+                    .named([t("children", "NNS", "child")]),
+                    .named([t("Obama", "NNP", "obama")]),
+                    token: t("'s", "POS", "'s")
+                )
+            )
+        )
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+
+        let Child = testQuestionOntology.classes["Child"]!
+        let hasChild = testQuestionOntology.properties["hasChild"]!
+
+        let obama = try env.newNode()
+            .hasLabel(testQuestionOntology, "Obama")
+
+        let expected = try env.newNode()
+            .incoming(obama, hasChild)
+            .isA(Child)
+
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ7() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .relationship(
+                    .named([t("wife", "NNS", "wife")]),
+                    .named([t("Obama", "NNP", "obama")]),
+                    token: t("'s", "POS", "'s")
+                )
+            )
+        )
+
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+
+        let Wife = testQuestionOntology.classes["Wife"]!
+        let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
+
+        let obama = try env.newNode()
+            .hasLabel(testQuestionOntology, "Obama")
+
+        let expected = try env.newNode()
+            .outgoing(hasSpouse, obama)
+            .isA(Wife)
+
+        diffedAssertEqual([expected], result)
+    }
 }
