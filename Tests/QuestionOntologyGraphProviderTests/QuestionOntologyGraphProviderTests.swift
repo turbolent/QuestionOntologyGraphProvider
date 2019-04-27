@@ -34,8 +34,10 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let died = testQuestionOntology.properties["died"]!
 
         let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+
         let person = env.newNode()
             .outgoing(isA, Person)
+
         let expected = person
             .outgoing(died, env.newNode())
 
@@ -55,7 +57,8 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let born = testQuestionOntology.properties["born"]!
 
         let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
-        let person = env.newNode()
+
+        let person = try env.newNode()
             .isA(Person)
 
         let expected = person
@@ -82,30 +85,87 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         let Person = testQuestionOntology.classes["Person"]!
         let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
+
         let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
-        let person = env.newNode()
+
+        let person = try env.newNode()
             .isA(Person)
 
-        let obama = env.newNode()
-            .hasLabel("Obama")
+        let obama = try env.newNode()
+            .hasLabel(testQuestionOntology, "Obama")
+
         let expected = person
             .incoming(obama, hasSpouse)
 
         diffedAssertEqual([expected], result)
     }
 
-}
+     func testQ4() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(
+                .withFilter(
+                    name: [t("died", "VBD", "die")],
+                    filter: .withModifier(
+                        modifier: [t("in", "IN", "in")],
+                        value: .named([t("Berlin", "NNP", "berlin")])
+                    )
+                )
+            )
+        )
 
-extension Node where Labels == HighLevelLabels<WikidataOntologyMappings> {
+        let Person = testQuestionOntology.classes["Person"]!
+        let died = testQuestionOntology.properties["died"]!
 
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
 
-    func isA(_ `class`: Class<WikidataOntologyMappings>) -> Node {
-        let isA = testQuestionOntology.properties["isA"]!
-        return outgoing(isA, `class`)
+        let person = try env.newNode()
+            .isA(Person)
+
+        let berlin = try env.newNode()
+            .hasLabel(testQuestionOntology, "Berlin")
+
+        let expected = person
+            .outgoing(died, berlin)
+
+        diffedAssertEqual([expected], result)
     }
 
-    func hasLabel(_ label: String) -> Node {
-        let labelProperty = testQuestionOntology.labelProperty!
-        return outgoing(labelProperty, .string(label))
+    func testQ5() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("wives", "NNS", "wife")]),
+                    property: .withFilter(
+                        name: [
+                            t("were", "VBD", "be"),
+                            t("born", "VBD", "bear")
+                        ],
+                        filter: .withModifier(
+                            modifier: [t("in", "IN", "in")],
+                            value: .named([t("Berlin", "NNP", "berlin")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let Wife = testQuestionOntology.classes["Wife"]!
+        let born = testQuestionOntology.properties["born"]!
+
+        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+
+        let wife = try env.newNode()
+            .isA(Wife)
+
+        let berlin = try env.newNode()
+            .hasLabel(testQuestionOntology, "Berlin")
+
+        let expected = wife
+            .outgoing(born, berlin)
+
+        diffedAssertEqual([expected], result)
     }
+
 }

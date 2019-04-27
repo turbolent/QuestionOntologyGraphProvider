@@ -6,14 +6,28 @@ import ParserDescription
 import Regex
 
 
+public enum Error: Swift.Error {
+    case notImplemented
+    case notAvailable
+}
+
+
+extension Error: LocalizedError {
+
+    public var errorDescription: String? {
+        switch self {
+        case .notImplemented:
+            return "not implemented"
+        case .notAvailable:
+            return "not available"
+        }
+    }
+}
+
+
 public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     where Mappings: OntologyMappings
 {
-    public enum Error: Swift.Error {
-        case notImplemented
-        case notAvailable
-    }
-
     public typealias Labels = HighLevelLabels<Mappings>
     public typealias Env = QuestionOntologyEnvironment<Mappings>
     public typealias Ontology = QuestionOntology<Mappings>
@@ -24,6 +38,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     private let personEdge: QuestionOntologyGraphProvider.Edge?
     private let namedPropertyInstruction: TokenInstruction<String>
     private let inversePropertyInstruction: TokenInstruction<String>
+    private let valuePropertyInstruction: TokenInstruction<String>
+    private let namedClassInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
         self.ontology = ontology
@@ -46,6 +62,22 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                 }
                 return pattern
             }
+
+        valuePropertyInstruction =
+            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
+                guard case let ._value(pattern) = $0 else {
+                    return nil
+                }
+                return pattern
+            }
+
+        namedClassInstruction =
+            try QuestionOntologyGraphProvider.compileClassPatternInstruction(ontology: ontology) {
+                guard case let ._named(pattern) = $0 else {
+                    return nil
+                }
+                return pattern
+        }
     }
 
     private static func makePersonEdge(ontology: Ontology)
@@ -64,21 +96,47 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         )
     }
 
-    private static func compilePropertyPatternInstruction(
+    public static func compilePropertyPatternInstruction(
         ontology: Ontology,
         filter: (PropertyPattern) -> AnyPattern?
     )
         throws -> TokenInstruction<String>
     {
-        let instructions = try ontology.properties.values
-            .flatMap { property in
-                try property.patterns
-                    .compactMap { propertyPattern -> TokenInstruction<String>? in
-                        try filter(propertyPattern)
-                            .map { try $0.compile(result: property.identifier) }
-                    }
+        return try compilePatternInstruction(patternsAndResults:
+            ontology.properties.values
+                .flatMap { property in
+                    property.patterns
+                        .compactMap(filter)
+                        .map { ($0, property.identifier) }
+                }
+        )
+    }
+
+    public static func compileClassPatternInstruction(
+        ontology: Ontology,
+        filter: (ClassPattern) -> AnyPattern?
+    )
+        throws -> TokenInstruction<String>
+    {
+        return try compilePatternInstruction(patternsAndResults:
+            ontology.classes.values
+                .flatMap { `class` in
+                    `class`.patterns
+                        .compactMap(filter)
+                        .map { ($0, `class`.identifier) }
             }
-        return compile(instructions: instructions)
+        )
+    }
+
+    private static func compilePatternInstruction(
+        patternsAndResults: [(pattern: AnyPattern, resultIdentifier: String)]
+    )
+        throws -> TokenInstruction<String>
+    {
+        return compile(
+            instructions: try patternsAndResults
+                .map { try $0.compile(result: $1) }
+        )
     }
 
     public func makePersonEdge(env _: Env) throws
@@ -148,8 +206,17 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         node: QuestionOntologyGraphProvider.Node,
         context: EdgeContext,
         env: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
-        throw Error.notImplemented
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
+        guard
+            let propertyIdentifier = valuePropertyInstruction.match(name + context.filter),
+            let property = ontology.properties[propertyIdentifier]
+        else {
+            throw Error.notAvailable
+        }
+
+        return .outgoing(property, node)
     }
 
     public func makeRelationshipEdge(
@@ -160,10 +227,18 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throw Error.notImplemented
     }
 
-    public func makeValueNode(name: [Token],filter _: [Token], env: Env)
+    public func makeValueNode(name: [Token], filter: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
-        // TODO: find class
+        // find class
+        if
+            let classIdentifier = namedClassInstruction.match(name),
+            let `class` = ontology.classes[classIdentifier]
+        {
+            return try env.newNode().isA(`class`)
+        }
+
+        // fall back to labeled node
 
         let nameString = name
             .map { $0.word }
@@ -187,18 +262,5 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throws -> QuestionOntologyGraphProvider.Node
     {
         throw Error.notImplemented
-    }
-}
-
-
-extension QuestionOntologyGraphProvider.Error: LocalizedError {
-
-    public var errorDescription: String? {
-        switch self {
-        case .notImplemented:
-            return "not implemented"
-        case .notAvailable:
-            return "not available"
-        }
     }
 }
