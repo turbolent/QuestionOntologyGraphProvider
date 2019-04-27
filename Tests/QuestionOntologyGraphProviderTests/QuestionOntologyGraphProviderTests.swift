@@ -224,4 +224,33 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         diffedAssertEqual([expected], result)
     }
+
+    func testQ8() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(
+                .adjectiveWithFilter(
+                    name: [
+                        t("is", "VBZ", "be"),
+                        t("old", "JJ", "old"),
+                    ],
+                    filter: .plain(.numberWithUnit(
+                        [t("42", "CD", "42")],
+                        unit: [t("years", "NNS", "year")]
+                    ))
+                )
+            )
+        )
+
+        let env = newEnv()
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let hasAge = testQuestionOntology.properties["hasAge"]!
+
+        let expected = try env.newNode()
+            .isA(Person)
+            .outgoing(hasAge, .number(42, unit: "year"))
+
+        diffedAssertEqual([expected], result)
+    }
 }

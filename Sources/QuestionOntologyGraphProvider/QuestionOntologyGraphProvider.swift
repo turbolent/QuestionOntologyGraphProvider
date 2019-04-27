@@ -4,6 +4,7 @@ import QuestionParser
 import QuestionOntology
 import ParserDescription
 import Regex
+import ParserDescriptionOperators
 
 
 public enum Error: Swift.Error {
@@ -25,6 +26,13 @@ extension Error: LocalizedError {
 }
 
 
+let be = TokenPattern(
+    condition:
+        LabelCondition(label: "lemma", op: .isEqualTo, input: "be")
+            && LabelCondition(label: Label.broadTag.rawValue, op: .isEqualTo, input: "V")
+)
+
+
 public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     where Mappings: OntologyMappings
 {
@@ -39,6 +47,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     private let namedPropertyInstruction: TokenInstruction<String>
     private let inversePropertyInstruction: TokenInstruction<String>
     private let valuePropertyInstruction: TokenInstruction<String>
+    private let adjectivePropertyInstruction: TokenInstruction<String>
     private let namedClassInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
@@ -48,36 +57,51 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             QuestionOntologyGraphProvider.makePersonEdge(ontology: ontology)
 
         namedPropertyInstruction =
-            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
-                guard case let ._named(pattern) = $0 else {
-                    return nil
+            try QuestionOntologyGraphProvider
+                .compilePropertyPatternInstruction(ontology: ontology) {
+                    guard case let ._named(pattern) = $0 else {
+                        return nil
+                    }
+                    return pattern
                 }
-                return pattern
-            }
 
         inversePropertyInstruction =
-            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
-                guard case let ._inverse(pattern) = $0 else {
-                    return nil
+            try QuestionOntologyGraphProvider
+                .compilePropertyPatternInstruction(ontology: ontology) {
+                    guard case let ._inverse(pattern) = $0 else {
+                        return nil
+                    }
+                    return pattern
                 }
-                return pattern
-            }
 
         valuePropertyInstruction =
-            try QuestionOntologyGraphProvider.compilePropertyPatternInstruction(ontology: ontology) {
-                guard case let ._value(pattern) = $0 else {
-                    return nil
+            try QuestionOntologyGraphProvider
+                .compilePropertyPatternInstruction(ontology: ontology) {
+                    guard case let ._value(pattern) = $0 else {
+                        return nil
+                    }
+                    return pattern
                 }
-                return pattern
-            }
+
+        adjectivePropertyInstruction =
+            try QuestionOntologyGraphProvider
+                .compilePropertyPatternInstruction(ontology: ontology) {
+                    guard case let ._adjective(pattern) = $0 else {
+                        return nil
+                    }
+
+                    // NOTE: prefix with be/VB
+                    return .sequence(be ~ pattern)
+                }
 
         namedClassInstruction =
-            try QuestionOntologyGraphProvider.compileClassPatternInstruction(ontology: ontology) {
-                guard case let ._named(pattern) = $0 else {
-                    return nil
-                }
-                return pattern
-        }
+            try QuestionOntologyGraphProvider
+                .compileClassPatternInstruction(ontology: ontology) {
+                    guard case let ._named(pattern) = $0 else {
+                        return nil
+                    }
+                    return pattern
+            }
     }
 
     private static func makePersonEdge(ontology: Ontology)
@@ -189,7 +213,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         context: EdgeContext,
         env _: Env
     ) throws -> QuestionOntologyGraphProvider.Edge {
-        throw Error.notImplemented
+
+        guard
+            let propertyIdentifier = adjectivePropertyInstruction.match(name + context.filter),
+            let property = ontology.properties[propertyIdentifier]
+        else {
+            throw Error.notAvailable
+        }
+
+        return .outgoing(property, node)
     }
 
     public func makeComparativePropertyEdge(
@@ -299,6 +331,10 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func makeNumberNode(number: [Token], unit: [Token], filter: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
-        throw Error.notImplemented
+        let numberString = number.map { $0.lemma }.joined(separator: " ")
+        let unitString = unit.isEmpty
+            ? nil
+            : unit.map { $0.lemma }.joined(separator: " ")
+        return Node(label: .number(Float(numberString)!, unit: unitString))
     }
 }

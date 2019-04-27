@@ -23,7 +23,10 @@ extension Class {
 
     var equivalentPropertySegments: [PropertySegment<M>] {
         return equivalents.flatMap { (equivalent: Equivalent<M>) -> [PropertySegment<M>] in
-            guard case let .segments(segments) = equivalent else {
+            guard
+                case let .segments(segments) = equivalent,
+                segments.count == 1
+            else {
                 return []
             }
 
