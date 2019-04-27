@@ -72,19 +72,18 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         let instructions = try ontology.properties.values
             .flatMap { property in
-                try property.patterns.compactMap { propertyPattern -> TokenInstruction<String>? in
-                    guard let pattern = filter(propertyPattern) else {
-                        return nil
+                try property.patterns
+                    .compactMap { propertyPattern -> TokenInstruction<String>? in
+                        try filter(propertyPattern)
+                            .map { try $0.compile(result: property.identifier) }
                     }
-                    return try pattern.compile(result: property.identifier)
-                }
             }
         return compile(instructions: instructions)
     }
 
-    public func makePersonEdge(
-        env _: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
+    public func makePersonEdge(env _: Env) throws
+        -> QuestionOntologyGraphProvider.Edge
+    {
         guard let personEdge = personEdge else {
             throw Error.notAvailable
         }
@@ -156,36 +155,37 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func makeRelationshipEdge(
         name: [Token],
         node: QuestionOntologyGraphProvider.Node,
-        env _: Env
+        env: Env
     ) throws -> QuestionOntologyGraphProvider.Edge {
         throw Error.notImplemented
     }
 
-    public func makeValueNode(
-        name: [Token],
-        filter _: [Token],
-        env: Env
-    ) throws -> QuestionOntologyGraphProvider.Node {
-
+    public func makeValueNode(name: [Token],filter _: [Token], env: Env)
+        throws -> QuestionOntologyGraphProvider.Node
+    {
         // TODO: find class
-
-        guard let labelProperty = ontology.labelProperty else {
-            throw Error.notAvailable
-        }
 
         let nameString = name
             .map { $0.word }
             .joined(separator: " ")
-        return env.newNode()
-            .outgoing(labelProperty, .string(nameString))
+
+        return try labeled(label: nameString, env: env)
     }
 
-    public func makeNumberNode(
-        number: [Token],
-        unit: [Token],
-        filter _: [Token],
-        env _: Env
-    ) throws -> QuestionOntologyGraphProvider.Node {
+    private func labeled(label: String, env: Env)
+        throws -> QuestionOntologyGraphProvider.Node
+    {
+        guard let labelProperty = ontology.labelProperty else {
+            throw Error.notAvailable
+        }
+
+        return env.newNode()
+            .outgoing(labelProperty, .string(label))
+    }
+
+    public func makeNumberNode(number: [Token], unit: [Token], filter: [Token], env: Env)
+        throws -> QuestionOntologyGraphProvider.Node
+    {
         throw Error.notImplemented
     }
 }
