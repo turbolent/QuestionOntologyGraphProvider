@@ -23,6 +23,10 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         return QuestionCompiler(environment: environment, provider: provider)
     }
 
+    private func newEnv() -> QuestionOntologyEnvironment<WikidataOntologyMappings> {
+        return .init()
+    }
+
     func testQ1() throws {
         let compiler = try newCompiler()
         let result = try compiler.compile(
@@ -33,7 +37,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let isA = testQuestionOntology.properties["isA"]!
         let died = testQuestionOntology.properties["died"]!
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let person = env.newNode()
             .outgoing(isA, Person)
@@ -56,7 +60,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let Person = testQuestionOntology.classes["Person"]!
         let born = testQuestionOntology.properties["born"]!
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let person = try env.newNode()
             .isA(Person)
@@ -86,7 +90,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let Person = testQuestionOntology.classes["Person"]!
         let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let person = try env.newNode()
             .isA(Person)
@@ -117,7 +121,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let Person = testQuestionOntology.classes["Person"]!
         let died = testQuestionOntology.properties["died"]!
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let person = try env.newNode()
             .isA(Person)
@@ -154,7 +158,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let Wife = testQuestionOntology.classes["Wife"]!
         let born = testQuestionOntology.properties["born"]!
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let wife = try env.newNode()
             .isA(Wife)
@@ -179,7 +183,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
                 )
             )
         )
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let Child = testQuestionOntology.classes["Child"]!
         let hasChild = testQuestionOntology.properties["hasChild"]!
@@ -206,7 +210,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             )
         )
 
-        let env = QuestionOntologyEnvironment<WikidataOntologyMappings>()
+        let env = newEnv()
 
         let Wife = testQuestionOntology.classes["Wife"]!
         let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
