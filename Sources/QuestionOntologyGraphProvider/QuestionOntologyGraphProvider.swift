@@ -8,8 +8,8 @@ import ParserDescriptionOperators
 
 
 public enum Error: Swift.Error {
-    case notImplemented
     case notAvailable
+    case invalidNumber(String)
 }
 
 
@@ -17,10 +17,10 @@ extension Error: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .notImplemented:
-            return "not implemented"
         case .notAvailable:
             return "not available"
+        case let .invalidNumber(number):
+            return "not a valid number: \(number)"
         }
     }
 }
@@ -43,6 +43,18 @@ struct Patterns {
 }
 
 
+enum Comparison: Hashable {
+    case greaterThan
+    case lessThan
+}
+
+struct ComparisonInstructionResult: Hashable {
+    let propertyIdentifier: String
+    let comparison: Comparison
+}
+
+
+
 public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     where Mappings: OntologyMappings
 {
@@ -58,7 +70,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     private let inversePropertyInstruction: TokenInstruction<String>
     private let valuePropertyInstruction: TokenInstruction<String>
     private let adjectivePropertyInstruction: TokenInstruction<String>
-    private let comparativeAdjectivePropertyInstruction: TokenInstruction<String>
+    private let comparativeAdjectivePropertyInstruction: TokenInstruction<ComparisonInstructionResult>
     private let namedClassInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
@@ -69,51 +81,70 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
         namedPropertyInstruction =
             try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) {
-                    guard case let ._named(pattern) = $0 else {
+                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                    guard case let ._named(pattern) = propertyPattern else {
                         return nil
                     }
-                    return pattern
+                    return (pattern, property.identifier)
                 }
 
         inversePropertyInstruction =
             try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) {
-                    guard case let ._inverse(pattern) = $0 else {
+                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                    guard case let ._inverse(pattern) = propertyPattern else {
                         return nil
                     }
-                    return pattern
+                    return (pattern, property.identifier)
                 }
 
         valuePropertyInstruction =
             try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) {
-                    guard case let ._value(pattern) = $0 else {
+                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                    guard case let ._value(pattern) = propertyPattern else {
                         return nil
                     }
-                    return pattern
+                    return (pattern, property.identifier)
                 }
 
         adjectivePropertyInstruction =
             try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) {
-                    guard case let ._adjective(pattern) = $0 else {
+                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                    guard case let ._adjective(pattern) = propertyPattern else {
                         return nil
                     }
 
                     // NOTE: prefix with be/VB
-                    return .sequence(Patterns.be ~ pattern)
+                    return (.sequence(Patterns.be ~ pattern), property.identifier)
                 }
 
         comparativeAdjectivePropertyInstruction =
             try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) {
-                    guard case let ._adjective(pattern) = $0 else {
-                        return nil
+                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                    // NOTE: prefix with be/V and suffix with than/IN
+                    func wrap(pattern: AnyPattern) -> AnyPattern {
+                        return .sequence(Patterns.be ~ pattern ~ Patterns.than)
                     }
 
-                    // NOTE: prefix with be/V and suffix with than/IN
-                    return .sequence(Patterns.be ~ pattern ~ Patterns.than)
+                    switch propertyPattern {
+                    case let ._adjective(pattern):
+                        return (
+                            wrap(pattern: pattern),
+                            ComparisonInstructionResult(
+                                propertyIdentifier: property.identifier,
+                                comparison: .greaterThan
+                            )
+                        )
+                    case let ._oppositeAdjective(pattern):
+                        return (
+                            wrap(pattern: pattern),
+                            ComparisonInstructionResult(
+                                propertyIdentifier: property.identifier,
+                                comparison: .lessThan
+                            )
+                        )
+                    default:
+                        return nil
+                    }
             }
 
         namedClassInstruction =
@@ -142,19 +173,19 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         )
     }
 
-    public static func compilePropertyPatternInstruction(
+    public static func compilePropertyPatternInstruction<Result>(
         ontology: Ontology,
-        filter: (PropertyPattern) -> AnyPattern?
+        mapping: (OntologyProperty<Mappings>, PropertyPattern) -> (AnyPattern, Result)?
     )
-        throws -> TokenInstruction<String>
+        throws -> TokenInstruction<Result>
+        where Result: Hashable
     {
         return try compilePatternInstruction(patternsAndResults:
-            ontology.properties.values
-                .flatMap { property in
-                    property.patterns
-                        .compactMap(filter)
-                        .map { ($0, property.identifier) }
+            ontology.properties.values.flatMap { property in
+                property.patterns.compactMap { pattern in
+                    mapping(property, pattern)
                 }
+            }
         )
     }
 
@@ -174,10 +205,11 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         )
     }
 
-    private static func compilePatternInstruction(
-        patternsAndResults: [(pattern: AnyPattern, resultIdentifier: String)]
+    private static func compilePatternInstruction<Result>(
+        patternsAndResults: [(pattern: AnyPattern, result: Result)]
     )
-        throws -> TokenInstruction<String>
+        throws -> TokenInstruction<Result>
+        where Result: Hashable
     {
         return compile(
             instructions: try patternsAndResults
@@ -255,9 +287,9 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throws -> QuestionOntologyGraphProvider.Edge
     {
         guard
-            let propertyIdentifier =
+            let result =
                 comparativeAdjectivePropertyInstruction.match(name + context.filter),
-            let property = ontology.properties[propertyIdentifier]
+            let property = ontology.properties[result.propertyIdentifier]
         else {
             throw Error.notAvailable
         }
@@ -265,8 +297,16 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let otherValue = env.newNode()
             .incoming(node, property)
 
+        let filter: GraphFilter<Labels>
+        switch result.comparison {
+        case .greaterThan:
+            filter = .greaterThan(otherValue)
+        case .lessThan:
+            filter = .lessThan(otherValue)
+        }
+
         let value = env.newNode()
-            .filtered(.greaterThan(otherValue))
+            .filtered(filter)
 
         return .outgoing(property, value)
     }
@@ -370,9 +410,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throws -> QuestionOntologyGraphProvider.Node
     {
         let numberString = number.map { $0.lemma }.joined(separator: " ")
+
+        guard let number = Float(numberString) else {
+            throw Error.invalidNumber(numberString)
+        }
+
         let unitString = unit.isEmpty
             ? nil
             : unit.map { $0.lemma }.joined(separator: " ")
-        return Node(label: .number(Float(numberString)!, unit: unitString))
+
+        return Node(label: .number(number, unit: unitString))
     }
 }
