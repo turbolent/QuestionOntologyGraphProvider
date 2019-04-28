@@ -341,4 +341,44 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         diffedAssertEqual([expected], result)
     }
 
+    func testQ11() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("men", "NNS", "man")]),
+                    property: .withFilter(
+                        name: [
+                            t("were", "VBD", "be"),
+                            t("born", "VBN", "bear")
+                        ],
+                        filter: .withModifier(
+                            modifier: [t("before", "IN", "before")],
+                            value: .number([t("1900", "CD", "1900")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let Male = testQuestionOntology.classes["Male"]!
+        let hasDateOfBirth = testQuestionOntology.properties["hasDateOfBirth"]!
+
+        let env = newEnv()
+
+        let male = try env.newNode()
+            .isA(Male)
+
+        let nineteenHundred: Node<HighLevelLabels<WikidataOntologyMappings>> =
+            Node(label: .number(1900, unit: nil))
+
+        let birthDate = env
+            .newNode()
+            .filtered(.lessThan(nineteenHundred))
+
+        let expected = male
+            .outgoing(hasDateOfBirth, birthDate)
+
+        diffedAssertEqual([expected], result)
+    }
 }
