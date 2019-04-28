@@ -183,10 +183,11 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
                 )
             )
         )
-        let env = newEnv()
 
         let Child = testQuestionOntology.classes["Child"]!
         let hasChild = testQuestionOntology.properties["hasChild"]!
+
+        let env = newEnv()
 
         let obama = try env.newNode()
             .hasLabel(testQuestionOntology, "Obama")
@@ -210,10 +211,10 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             )
         )
 
-        let env = newEnv()
-
         let Wife = testQuestionOntology.classes["Wife"]!
         let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
+
+        let env = newEnv()
 
         let obama = try env.newNode()
             .hasLabel(testQuestionOntology, "Obama")
@@ -242,10 +243,10 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             )
         )
 
-        let env = newEnv()
-
         let Person = testQuestionOntology.classes["Person"]!
         let hasAge = testQuestionOntology.properties["hasAge"]!
+
+        let env = newEnv()
 
         let expected = try env.newNode()
             .isA(Person)
@@ -253,4 +254,48 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         diffedAssertEqual([expected], result)
     }
+
+    func testQ9() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(
+                .withFilter(
+                    name: [t("is", "VBZ", "be")],
+                    filter: .withComparativeModifier(
+                        modifier: [
+                            t("older", "JJR", "old"),
+                            t("than", "IN", "than")
+                        ],
+                        value: .named([t("Obama", "NNP", "obama")])
+                    )
+                )
+            )
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let hasAge = testQuestionOntology.properties["hasAge"]!
+
+        let env = newEnv()
+
+        let person = try env.newNode()
+            .isA(Person)
+
+        let obama = try env
+            .newNode()
+            .hasLabel(testQuestionOntology, "Obama")
+
+        let obamasAge = env
+            .newNode()
+            .incoming(obama, hasAge)
+
+        let age = env
+            .newNode()
+            .filtered(.greaterThan(obamasAge))
+
+        let expected = person
+            .outgoing(hasAge, age)
+
+        diffedAssertEqual([expected], result)
+    }
+
 }

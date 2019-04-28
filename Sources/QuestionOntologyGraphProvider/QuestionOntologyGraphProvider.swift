@@ -26,11 +26,21 @@ extension Error: LocalizedError {
 }
 
 
-let be = TokenPattern(
-    condition:
+struct Patterns {
+    private init() {}
+
+    static let be = TokenPattern(
+        condition:
         LabelCondition(label: "lemma", op: .isEqualTo, input: "be")
             && LabelCondition(label: Label.broadTag.rawValue, op: .isEqualTo, input: "V")
-)
+    )
+
+    static let than = TokenPattern(
+        condition:
+        LabelCondition(label: "lemma", op: .isEqualTo, input: "than")
+            && LabelCondition(label: Label.fineTag.rawValue, op: .isEqualTo, input: "IN")
+    )
+}
 
 
 public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
@@ -48,6 +58,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     private let inversePropertyInstruction: TokenInstruction<String>
     private let valuePropertyInstruction: TokenInstruction<String>
     private let adjectivePropertyInstruction: TokenInstruction<String>
+    private let comparativeAdjectivePropertyInstruction: TokenInstruction<String>
     private let namedClassInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
@@ -91,8 +102,19 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                     }
 
                     // NOTE: prefix with be/VB
-                    return .sequence(be ~ pattern)
+                    return .sequence(Patterns.be ~ pattern)
                 }
+
+        comparativeAdjectivePropertyInstruction =
+            try QuestionOntologyGraphProvider
+                .compilePropertyPatternInstruction(ontology: ontology) {
+                    guard case let ._adjective(pattern) = $0 else {
+                        return nil
+                    }
+
+                    // NOTE: prefix with be/V and suffix with than/IN
+                    return .sequence(Patterns.be ~ pattern ~ Patterns.than)
+            }
 
         namedClassInstruction =
             try QuestionOntologyGraphProvider
@@ -229,8 +251,24 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         node: QuestionOntologyGraphProvider.Node,
         context: EdgeContext,
         env: Env
-    ) throws -> QuestionOntologyGraphProvider.Edge {
-        throw Error.notImplemented
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
+        guard
+            let propertyIdentifier =
+                comparativeAdjectivePropertyInstruction.match(name + context.filter),
+            let property = ontology.properties[propertyIdentifier]
+        else {
+            throw Error.notAvailable
+        }
+
+        let otherValue = env.newNode()
+            .incoming(node, property)
+
+        let value = env.newNode()
+            .filtered(.greaterThan(otherValue))
+
+        return .outgoing(property, value)
     }
 
     public func makeValuePropertyEdge(
