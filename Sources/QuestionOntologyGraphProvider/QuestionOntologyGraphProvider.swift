@@ -48,7 +48,7 @@ enum Comparison: Hashable {
     case lessThan
 }
 
-struct ComparisonInstructionResult: Hashable {
+struct ComparativePropertyInstructionResult: Hashable {
     let propertyIdentifier: String
     let comparison: Comparison
 }
@@ -70,7 +70,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     private let inversePropertyInstruction: TokenInstruction<String>
     private let valuePropertyInstruction: TokenInstruction<String>
     private let adjectivePropertyInstruction: TokenInstruction<String>
-    private let comparativeAdjectivePropertyInstruction: TokenInstruction<ComparisonInstructionResult>
+    private let comparativePropertyInstruction: TokenInstruction<ComparativePropertyInstructionResult>
     private let namedClassInstruction: TokenInstruction<String>
 
     public init(ontology: Ontology) throws {
@@ -117,7 +117,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                     return (.sequence(Patterns.be ~ pattern), property.identifier)
                 }
 
-        comparativeAdjectivePropertyInstruction =
+        comparativePropertyInstruction =
             try QuestionOntologyGraphProvider
                 .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
                     // NOTE: prefix with be/V and suffix with than/IN
@@ -129,7 +129,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                     case let ._adjective(pattern):
                         return (
                             wrap(pattern: pattern),
-                            ComparisonInstructionResult(
+                            ComparativePropertyInstructionResult(
                                 propertyIdentifier: property.identifier,
                                 comparison: .greaterThan
                             )
@@ -137,7 +137,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                     case let ._oppositeAdjective(pattern):
                         return (
                             wrap(pattern: pattern),
-                            ComparisonInstructionResult(
+                            ComparativePropertyInstructionResult(
                                 propertyIdentifier: property.identifier,
                                 comparison: .lessThan
                             )
@@ -288,7 +288,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         guard
             let result =
-                comparativeAdjectivePropertyInstruction.match(name + context.filter),
+                comparativePropertyInstruction.match(name + context.filter),
             let property = ontology.properties[result.propertyIdentifier]
         else {
             throw Error.notAvailable
