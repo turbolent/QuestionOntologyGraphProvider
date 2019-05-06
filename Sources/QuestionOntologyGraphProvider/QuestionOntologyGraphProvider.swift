@@ -2,9 +2,6 @@ import Foundation
 import QuestionCompiler
 import QuestionParser
 import QuestionOntology
-import ParserDescription
-import Regex
-import ParserDescriptionOperators
 
 
 public enum Error: Swift.Error {
@@ -26,26 +23,6 @@ extension Error: LocalizedError {
 }
 
 
-struct ValuePropertyInstructionResult: Hashable {
-    let propertyIdentifier: String
-    let comparison: Comparison?
-}
-
-
-struct ComparativePropertyInstructionResult: Hashable {
-    let propertyIdentifier: String
-    let comparison: Comparison
-}
-
-
-
-struct Patterns {
-    private init() {}
-
-    static let be = pattern(lemma: "be", tag: .anyVerb)
-}
-
-
 public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     where Mappings: OntologyMappings
 {
@@ -57,97 +34,14 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public let ontology: Ontology
 
     private let personEdge: QuestionOntologyGraphProvider.Edge?
-    private let namedPropertyInstruction: TokenInstruction<String>
-    private let inversePropertyInstruction: TokenInstruction<String>
-    private let valuePropertyInstruction: TokenInstruction<ValuePropertyInstructionResult>
-    private let adjectivePropertyInstruction: TokenInstruction<String>
-    private let comparativePropertyInstruction: TokenInstruction<ComparativePropertyInstructionResult>
-    private let namedClassInstruction: TokenInstruction<String>
+    private let ontologyElements: QuestionOntologyElements<Mappings>
 
     public init(ontology: Ontology) throws {
         self.ontology = ontology
-
         personEdge =
             QuestionOntologyGraphProvider.makePersonEdge(ontology: ontology)
 
-        namedPropertyInstruction =
-            try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._named(pattern) = propertyPattern else {
-                        return nil
-                    }
-                    return (pattern, property.identifier)
-                }
-
-        inversePropertyInstruction =
-            try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._inverse(pattern) = propertyPattern else {
-                        return nil
-                    }
-                    return (pattern, property.identifier)
-                }
-
-        valuePropertyInstruction =
-            try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    switch propertyPattern {
-                    case let ._value(pattern):
-                        return (
-                            pattern,
-                            ValuePropertyInstructionResult(
-                                propertyIdentifier: property.identifier,
-                                comparison: nil
-                            )
-                        )
-                    case let ._comparative(pattern, comparison):
-                        return (
-                            pattern,
-                            ValuePropertyInstructionResult(
-                                propertyIdentifier: property.identifier,
-                                comparison: comparison
-                            )
-                        )
-                    default:
-                        return nil
-                    }
-                }
-
-        adjectivePropertyInstruction =
-            try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._adjective(pattern) = propertyPattern else {
-                        return nil
-                    }
-
-                    // NOTE: prefix with be/VB
-                    return (.sequence(Patterns.be ~ pattern), property.identifier)
-                }
-
-        comparativePropertyInstruction =
-            try QuestionOntologyGraphProvider
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._comparative(pattern, comparison) = propertyPattern else {
-                        return nil
-                    }
-
-                return (
-                    pattern,
-                    ComparativePropertyInstructionResult(
-                        propertyIdentifier: property.identifier,
-                        comparison: comparison
-                    )
-                )
-            }
-
-        namedClassInstruction =
-            try QuestionOntologyGraphProvider
-                .compileClassPatternInstruction(ontology: ontology) {
-                    guard case let ._named(pattern) = $0 else {
-                        return nil
-                    }
-                    return pattern
-            }
+        ontologyElements = try QuestionOntologyElements(ontology: ontology)
     }
 
     private static func makePersonEdge(ontology: Ontology)
@@ -163,50 +57,6 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         return .outgoing(
             instanceProperty,
             personClass
-        )
-    }
-
-    public static func compilePropertyPatternInstruction<Result>(
-        ontology: Ontology,
-        mapping: (OntologyProperty<Mappings>, PropertyPattern) -> (AnyPattern, Result)?
-    )
-        throws -> TokenInstruction<Result>
-        where Result: Hashable
-    {
-        return try compilePatternInstruction(patternsAndResults:
-            ontology.properties.values.flatMap { property in
-                property.patterns.compactMap { pattern in
-                    mapping(property, pattern)
-                }
-            }
-        )
-    }
-
-    public static func compileClassPatternInstruction(
-        ontology: Ontology,
-        filter: (ClassPattern) -> AnyPattern?
-    )
-        throws -> TokenInstruction<String>
-    {
-        return try compilePatternInstruction(patternsAndResults:
-            ontology.classes.values
-                .flatMap { `class` in
-                    `class`.patterns
-                        .compactMap(filter)
-                        .map { ($0, `class`.identifier) }
-            }
-        )
-    }
-
-    private static func compilePatternInstruction<Result>(
-        patternsAndResults: [(pattern: AnyPattern, result: Result)]
-    )
-        throws -> TokenInstruction<Result>
-        where Result: Hashable
-    {
-        return compile(
-            instructions: try patternsAndResults
-                .map { try $0.compile(result: $1) }
         )
     }
 
@@ -226,14 +76,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        guard
-            let propertyIdentifier = namedPropertyInstruction.match(name),
-            let property = ontology.properties[propertyIdentifier]
-        else {
+        let properties = try ontologyElements.findNamedProperties(name: name)
+
+        guard !properties.isEmpty else {
             throw Error.notAvailable
         }
 
-        return .outgoing(property, env.newNode())
+        return Edge(disjunction: properties.map {
+            .outgoing($0, env.newNode())
+        })
     }
 
     public func makeInversePropertyEdge(
@@ -244,14 +95,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        guard
-            let propertyIdentifier = inversePropertyInstruction.match(name),
-            let property = ontology.properties[propertyIdentifier]
-        else {
+        let properties = try ontologyElements.findInverseProperties(name: name)
+
+        guard !properties.isEmpty else {
             throw Error.notAvailable
         }
 
-        return .incoming(node, property)
+        return Edge(disjunction: properties.map {
+            .incoming(node, $0)
+        })
     }
 
     public func makeAdjectivePropertyEdge(
@@ -261,14 +113,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         env _: Env
     ) throws -> QuestionOntologyGraphProvider.Edge {
 
-        guard
-            let propertyIdentifier = adjectivePropertyInstruction.match(name + context.filter),
-            let property = ontology.properties[propertyIdentifier]
-        else {
+        let properties = try ontologyElements.findAdjectiveProperties(name: name + context.filter)
+
+        guard !properties.isEmpty else {
             throw Error.notAvailable
         }
 
-        return .outgoing(property, node)
+        return Edge(disjunction: properties.map {
+            .outgoing($0, node)
+        })
     }
 
     public func makeComparativePropertyEdge(
@@ -279,29 +132,30 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        guard
-            let result =
-                comparativePropertyInstruction.match(name + context.filter),
-            let property = ontology.properties[result.propertyIdentifier]
-        else {
+        let results = try ontologyElements.findComparativeProperties(name: name + context.filter)
+
+        guard !results.isEmpty else {
             throw Error.notAvailable
         }
 
-        let otherValue = env.newNode()
-            .incoming(node, property)
+        return Edge(disjunction: results.map { result in
 
-        let filter: GraphFilter<Labels>
-        switch result.comparison {
-        case .greaterThan:
-            filter = .greaterThan(otherValue)
-        case .lessThan:
-            filter = .lessThan(otherValue)
-        }
+            let otherValue = env.newNode()
+                .incoming(node, result.property)
 
-        let value = env.newNode()
-            .filtered(filter)
+            let filter: GraphFilter<Labels>
+            switch result.comparison {
+            case .greaterThan:
+                filter = .greaterThan(otherValue)
+            case .lessThan:
+                filter = .lessThan(otherValue)
+            }
 
-        return .outgoing(property, value)
+            let value = env.newNode()
+                .filtered(filter)
+
+            return .outgoing(result.property, value)
+        })
     }
 
     public func makeValuePropertyEdge(
@@ -312,27 +166,28 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        guard
-            let result = valuePropertyInstruction.match(name + context.filter),
-            let property = ontology.properties[result.propertyIdentifier]
-        else {
+        let results = try ontologyElements.findValueProperties(name: name + context.filter)
+
+        guard !results.isEmpty else {
             throw Error.notAvailable
         }
 
-        var node = node
+        return Edge(disjunction: results.map { result in
+            var node = node
 
-        switch result.comparison {
-        case nil:
-            break
-        case .lessThan?:
-            node = env.newNode()
-                .filtered(.lessThan(node))
-        case .greaterThan?:
-            node = env.newNode()
-                .filtered(.greaterThan(node))
-        }
+            switch result.comparison {
+            case nil:
+                break
+            case .lessThan?:
+                node = env.newNode()
+                    .filtered(.lessThan(node))
+            case .greaterThan?:
+                node = env.newNode()
+                    .filtered(.greaterThan(node))
+            }
 
-        return .outgoing(property, node)
+            return .outgoing(result.property, node)
+        })
     }
 
     public func makeRelationshipEdge(
@@ -343,53 +198,34 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throws -> QuestionOntologyGraphProvider.Edge
     {
         // the returned edge consists of two parts:
-        // 1. an instance-of edge for a class with the given name
+        // 1. an instance-of edge for the classes with the given name
         // 2. a single edge or disjunction of edges to the node,
         //    labeled with an equivalent property of the class or superclasses
 
         // find class and create instance-of edge
-        guard
-            let classIdentifier = namedClassInstruction.match(name),
-            let `class` = ontology.classes[classIdentifier]
-        else {
+        let classes = try ontologyElements.findNamedClasses(name: name)
+
+        guard !classes.isEmpty else {
             throw Error.notAvailable
         }
 
-        let instanceEdge: Edge = try .isA(`class`)
+        let instanceEdge = Edge(disjunction: try classes.map { try .isA($0) })
 
-        // find equivalents with a single, property segment.
-        // recursivly search the superclasses if this class has none
+        // TODO: relationship edges
 
-        var currentClass = `class`
-        var equivalentPropertySegments: [PropertySegment<Mappings>]
-        var superClasses: [Class<Mappings>] = []
-
-        repeat {
-            equivalentPropertySegments = currentClass.equivalentPropertySegments
-            superClasses.append(contentsOf: currentClass.superClasses)
-
-            currentClass = superClasses.removeFirst()
-        } while equivalentPropertySegments.isEmpty && !superClasses.isEmpty
-
-        guard !equivalentPropertySegments.isEmpty else {
-            throw Error.notAvailable
-        }
-
-        var edges = equivalentPropertySegments.map { $0.edge(node: node) }
-        edges.append(instanceEdge)
-
-        return .conjunction(edges)
+        return instanceEdge
     }
 
-    public func makeValueNode(name: [Token], filter: [Token], env: Env)
+    public func makeValueNode(name: [Token], filter _: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
         // find class and create instance-of node
-        if
-            let classIdentifier = namedClassInstruction.match(name),
-            let `class` = ontology.classes[classIdentifier]
-        {
-            return try env.newNode().isA(`class`)
+
+        let classes = try ontologyElements.findNamedClasses(name: name)
+
+        if !classes.isEmpty {
+            return env.newNode()
+                .and(Edge(disjunction: try classes.map { try .isA($0) }))
         }
 
         // fall back to labeled node
@@ -426,5 +262,10 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             : unit.map { $0.lemma }.joined(separator: " ")
 
         return Node(label: .number(number, unit: unitString))
+    }
+
+    public func isDisjunction(property: [Token], filter: [Token]) -> Bool {
+        return property.isEmpty
+            && filter.allSatisfy { $0.tag == "IN" }
     }
 }
