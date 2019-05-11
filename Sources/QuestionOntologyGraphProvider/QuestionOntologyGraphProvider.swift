@@ -205,8 +205,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         // the returned edge consists of two parts:
         // 1. an instance-of edge for the classes with the given name
-        // 2. a single edge or disjunction of edges to the node,
-        //    labeled with an equivalent property of the class or superclasses
+        // 2. a single edge or disjunction of edges to the node
 
         // find class and create instance-of edge
         let classes = ontologyElements.findNamedClasses(name: name)
