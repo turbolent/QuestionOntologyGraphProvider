@@ -63,12 +63,12 @@ public extension Edge {
 
 public extension Edge {
 
-    static func isA<M>(_ `class`: Class<M>)
+    static func isA<M>(_ ontology: QuestionOntology<M>, _ `class`: Class<M>)
         throws -> Edge
         where M: OntologyMappings,
             Labels == HighLevelLabels<M>
     {
-        guard let instanceProperty = `class`.ontology.instanceProperty else {
+        guard let instanceProperty = ontology.instanceProperty else {
             throw Error.notAvailable
         }
         return .outgoing(instanceProperty, `class`)

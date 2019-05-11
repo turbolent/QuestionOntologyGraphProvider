@@ -63,7 +63,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let person = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
 
         let expected = person
             .outgoing(born, env.newNode())
@@ -93,7 +93,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let person = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
 
         let obama = try env.newNode()
             .hasLabel(testQuestionOntology, "Obama")
@@ -124,7 +124,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let person = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
 
         let berlin = try env.newNode()
             .hasLabel(testQuestionOntology, "Berlin")
@@ -161,7 +161,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let wife = try env.newNode()
-            .isA(Wife)
+            .isA(testQuestionOntology, Wife)
 
         let berlin = try env.newNode()
             .hasLabel(testQuestionOntology, "Berlin")
@@ -194,7 +194,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         let expected = try env.newNode()
             .incoming(obama, hasChild)
-            .isA(Child)
+            .isA(testQuestionOntology, Child)
 
         diffedAssertEqual([expected], result)
     }
@@ -221,7 +221,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         let expected = try env.newNode()
             .outgoing(hasSpouse, obama)
-            .isA(Wife)
+            .isA(testQuestionOntology, Wife)
 
         diffedAssertEqual([expected], result)
     }
@@ -249,7 +249,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let expected = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
             .outgoing(hasAge, .number(42, unit: "year"))
 
         diffedAssertEqual([expected], result)
@@ -278,7 +278,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let person = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
 
         let obama = try env
             .newNode()
@@ -321,7 +321,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let person = try env.newNode()
-            .isA(Person)
+            .isA(testQuestionOntology, Person)
 
         let obama = try env
             .newNode()
@@ -367,7 +367,7 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let env = newEnv()
 
         let male = try env.newNode()
-            .isA(Male)
+            .isA(testQuestionOntology, Male)
 
         let nineteenHundred: Node<HighLevelLabels<WikidataOntologyMappings>> =
             Node(label: .number(1900, unit: nil))

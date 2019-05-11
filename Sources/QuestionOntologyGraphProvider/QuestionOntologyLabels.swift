@@ -8,7 +8,7 @@ public struct HighLevelLabels<M>: GraphLabels
 {
     private init() {}
 
-    public enum Node: NodeLabel, Equatable {
+    public enum Node: NodeLabel, Hashable {
         case variable(Int)
         case `class`(Class<M>)
         case individual(Individual<M>)
@@ -16,7 +16,7 @@ public struct HighLevelLabels<M>: GraphLabels
         case number(Float, unit: String?)
     }
 
-    public struct Edge: EdgeLabel, Equatable {
+    public struct Edge: EdgeLabel, Hashable {
         public let property: Property<M>
 
         public init(property: Property<M>) {

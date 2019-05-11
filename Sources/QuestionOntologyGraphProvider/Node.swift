@@ -48,12 +48,12 @@ public extension Node {
 
 public extension Node {
 
-    func isA<M>(_ `class`: Class<M>)
+    func isA<M>(_ ontology: QuestionOntology<M>, _ `class`: Class<M>)
         throws -> Node
         where M: OntologyMappings,
             Labels == HighLevelLabels<M>
     {
-        return try and(.isA(`class`))
+        return try and(.isA(ontology, `class`))
     }
 
     func hasLabel<M>(_ ontology: QuestionOntology<M>, _ label: String)

@@ -2,46 +2,18 @@ import QuestionCompiler
 import QuestionOntology
 
 
-enum PropertySegment<M>
-    where M: OntologyMappings
+enum PropertySegment<Mappings>
+    where Mappings: OntologyMappings
 {
-    case incoming(Property<M>)
-    case outgoing(Property<M>)
+    case incoming(Property<Mappings>)
+    case outgoing(Property<Mappings>)
 
-    func edge(node: Node<HighLevelLabels<M>>) -> Edge<HighLevelLabels<M>> {
+    func edge(node: Node<HighLevelLabels<Mappings>>) -> Edge<HighLevelLabels<Mappings>> {
         switch self {
         case let .outgoing(property):
             return .outgoing(property, node)
         case let .incoming(property):
             return .incoming(node, property)
-        }
-    }
-}
-
-
-extension Class {
-
-    var equivalentPropertySegments: [PropertySegment<M>] {
-        return equivalents.flatMap { (equivalent: Equivalent<M>) -> [PropertySegment<M>] in
-            guard
-                case let .segments(segments) = equivalent,
-                segments.count == 1
-            else {
-                return []
-            }
-
-            return segments.compactMap { (segment: Equivalent<M>.Segment) -> PropertySegment<M>? in
-                switch segment.identifier {
-                case let .outgoing(propertyIdentifier):
-                    return ontology.properties[propertyIdentifier]
-                        .map { .outgoing($0) }
-                case let .incoming(propertyIdentifier):
-                    return ontology.properties[propertyIdentifier]
-                        .map { .incoming($0) }
-                case .individual(_):
-                    return nil
-                }
-            }
         }
     }
 }

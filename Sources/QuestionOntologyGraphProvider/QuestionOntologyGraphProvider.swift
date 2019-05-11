@@ -209,7 +209,9 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             throw Error.notAvailable
         }
 
-        let instanceEdge = Edge(disjunction: try classes.map { try .isA($0) })
+        let instanceEdge = Edge(disjunction: try classes.map {
+            try .isA(ontology, $0)
+        })
 
         // TODO: relationship edges
 
@@ -225,7 +227,9 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
         if !classes.isEmpty {
             return env.newNode()
-                .and(Edge(disjunction: try classes.map { try .isA($0) }))
+                .and(Edge(disjunction: try classes.map {
+                    try .isA(ontology, $0)
+                }))
         }
 
         // fall back to labeled node
