@@ -193,8 +193,8 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             .hasLabel(testQuestionOntology, "Obama")
 
         let expected = try env.newNode()
-            .incoming(obama, hasChild)
             .isA(testQuestionOntology, Child)
+            .incoming(obama, hasChild)
 
         diffedAssertEqual([expected], result)
     }
@@ -220,8 +220,8 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
             .hasLabel(testQuestionOntology, "Obama")
 
         let expected = try env.newNode()
-            .outgoing(hasSpouse, obama)
             .isA(testQuestionOntology, Wife)
+            .outgoing(hasSpouse, obama)
 
         diffedAssertEqual([expected], result)
     }

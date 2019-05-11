@@ -2,7 +2,7 @@ import QuestionCompiler
 import QuestionOntology
 
 
-enum PropertySegment<Mappings>
+enum DirectedProperty<Mappings>: Hashable
     where Mappings: OntologyMappings
 {
     case incoming(Property<Mappings>)

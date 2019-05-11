@@ -7,6 +7,7 @@ import QuestionOntology
 public enum Error: Swift.Error {
     case notAvailable
     case invalidNumber(String)
+    case invalidPropertyIdentifier(String)
 }
 
 
@@ -18,6 +19,8 @@ extension Error: LocalizedError {
             return "not available"
         case let .invalidNumber(number):
             return "not a valid number: \(number)"
+        case let .invalidPropertyIdentifier(identifier):
+            return "invalid property: \(identifier)"
         }
     }
 }
@@ -76,7 +79,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        let properties = try ontologyElements.findNamedProperties(name: name)
+        let properties = ontologyElements.findNamedProperties(name: name)
 
         guard !properties.isEmpty else {
             throw Error.notAvailable
@@ -95,7 +98,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        let properties = try ontologyElements.findInverseProperties(name: name)
+        let properties = ontologyElements.findInverseProperties(name: name)
 
         guard !properties.isEmpty else {
             throw Error.notAvailable
@@ -113,7 +116,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         env _: Env
     ) throws -> QuestionOntologyGraphProvider.Edge {
 
-        let properties = try ontologyElements.findAdjectiveProperties(name: name + context.filter)
+        let properties = ontologyElements
+            .findAdjectiveProperties(name: name + context.filter)
 
         guard !properties.isEmpty else {
             throw Error.notAvailable
@@ -132,7 +136,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        let results = try ontologyElements.findComparativeProperties(name: name + context.filter)
+        let results = ontologyElements
+            .findComparativeProperties(name: name + context.filter)
 
         guard !results.isEmpty else {
             throw Error.notAvailable
@@ -166,7 +171,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        let results = try ontologyElements.findValueProperties(name: name + context.filter)
+        let results = ontologyElements
+            .findValueProperties(name: name + context.filter)
 
         guard !results.isEmpty else {
             throw Error.notAvailable
@@ -203,7 +209,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         //    labeled with an equivalent property of the class or superclasses
 
         // find class and create instance-of edge
-        let classes = try ontologyElements.findNamedClasses(name: name)
+        let classes = ontologyElements.findNamedClasses(name: name)
 
         guard !classes.isEmpty else {
             throw Error.notAvailable
@@ -213,9 +219,18 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             try .isA(ontology, $0)
         })
 
-        // TODO: relationship edges
+        let directedProperties = ontologyElements.findRelationships(name: name)
 
-        return instanceEdge
+        guard !directedProperties.isEmpty else {
+            throw Error.notAvailable
+        }
+
+        let relationshipEdge =
+            Edge(disjunction: directedProperties.map { directedProperty in
+                directedProperty.edge(node: node)
+            })
+
+        return .conjunction([instanceEdge, relationshipEdge])
     }
 
     public func makeValueNode(name: [Token], filter _: [Token], env: Env)
@@ -223,7 +238,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         // find class and create instance-of node
 
-        let classes = try ontologyElements.findNamedClasses(name: name)
+        let classes = ontologyElements.findNamedClasses(name: name)
 
         if !classes.isEmpty {
             return env.newNode()

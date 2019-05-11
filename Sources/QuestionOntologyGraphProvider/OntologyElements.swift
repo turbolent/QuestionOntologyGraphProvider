@@ -32,6 +32,7 @@ final class QuestionOntologyElements<Mappings>
     private let comparativePropertyInstruction:
         TokenInstruction<ComparativePropertyInstructionResult<Mappings>>
     private let namedClassInstruction: TokenInstruction<OntologyClass<Mappings>>
+    private let relationshipInstruction: TokenInstruction<DirectedProperty<Mappings>>
 
     let ontology: Ontology
 
@@ -116,6 +117,59 @@ final class QuestionOntologyElements<Mappings>
                     }
                     return pattern
             }
+
+        relationshipInstruction =
+            try QuestionOntologyElements
+                .compileRelationshipInstruction(ontology: ontology)
+    }
+
+    private static func compileRelationshipInstruction(ontology: Ontology)
+        throws -> TokenInstruction<DirectedProperty<Mappings>>
+    {
+        func asDirectedProperty(relation: Relation<Mappings>)
+            throws -> (AnyPattern?, DirectedProperty<Mappings>)
+        {
+            let propertyIdentifier = relation.propertyIdentifier
+            guard
+                let property = ontology.properties[propertyIdentifier]
+            else {
+                throw Error.invalidPropertyIdentifier(propertyIdentifier)
+            }
+
+            let directedProperty: DirectedProperty<Mappings>
+            switch relation.direction {
+            case .incoming:
+                directedProperty = .incoming(property)
+            case .outgoing:
+                directedProperty = .outgoing(property)
+            }
+
+            return (relation.pattern, directedProperty)
+        }
+
+        return try compilePatternInstruction(patternsAndResults:
+            try ontology.classes.values
+                .flatMap { `class` -> [(AnyPattern, DirectedProperty<Mappings>)] in
+                    let directedPropertyPatterns = try `class`.relations.map(asDirectedProperty)
+
+                    return `class`.patterns.flatMap { classPattern in
+                        directedPropertyPatterns.map {
+                            let (patternSuffix, directedProperty) = $0
+
+                            switch classPattern {
+                            case let ._named(namedPattern):
+                                let pattern = patternSuffix
+                                    .map { AnyPattern(namedPattern ~ $0) }
+                                    ?? namedPattern
+                                return (
+                                    pattern,
+                                    directedProperty
+                                )
+                            }
+                        }
+                    }
+                }
+        )
     }
 
     private static func compilePropertyPatternInstruction<Result>(
@@ -162,26 +216,20 @@ final class QuestionOntologyElements<Mappings>
         )
     }
 
-    func findNamedProperties(name: [Token])
-        throws -> [OntologyProperty<Mappings>]
-    {
+    func findNamedProperties(name: [Token]) -> [OntologyProperty<Mappings>] {
         return namedPropertyInstruction.match(name)
     }
 
-    func findInverseProperties(name: [Token])
-        throws -> [OntologyProperty<Mappings>]
-    {
+    func findInverseProperties(name: [Token]) -> [OntologyProperty<Mappings>] {
         return inversePropertyInstruction.match(name)
     }
 
-    func findAdjectiveProperties(name: [Token])
-        throws -> [OntologyProperty<Mappings>]
-    {
+    func findAdjectiveProperties(name: [Token]) -> [OntologyProperty<Mappings>] {
         return adjectivePropertyInstruction.match(name)
     }
 
     func findValueProperties(name: [Token])
-        throws -> [(property: OntologyProperty<Mappings>, comparison: Comparison?)]
+        -> [(property: OntologyProperty<Mappings>, comparison: Comparison?)]
     {
         return valuePropertyInstruction.match(name)
             .map { result in
@@ -190,7 +238,7 @@ final class QuestionOntologyElements<Mappings>
     }
 
     func findComparativeProperties(name: [Token])
-        throws -> [(property: OntologyProperty<Mappings>, comparison: Comparison)]
+        -> [(property: OntologyProperty<Mappings>, comparison: Comparison)]
     {
         return comparativePropertyInstruction.match(name)
             .map { result in
@@ -198,9 +246,11 @@ final class QuestionOntologyElements<Mappings>
             }
     }
 
-    func findNamedClasses(name: [Token])
-        throws -> [OntologyClass<Mappings>]
-    {
+    func findNamedClasses(name: [Token]) -> [OntologyClass<Mappings>] {
         return namedClassInstruction.match(name)
+    }
+
+    func findRelationships(name: [Token]) -> [DirectedProperty<Mappings>] {
+        return relationshipInstruction.match(name)
     }
 }
