@@ -18,3 +18,17 @@ extension QuestionParser.Token: Regex.Token {
         }
     }
 }
+
+extension Sequence
+    where Element == QuestionParser.Token
+{
+    func joinedLemmas() -> String {
+        return map { $0.lemma }
+            .joined(separator: " ")
+    }
+
+    func joinedWords() -> String {
+        return map { $0.word }
+            .joined(separator: " ")
+    }
+}

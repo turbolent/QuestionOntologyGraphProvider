@@ -297,15 +297,13 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func makeNumberNode(number: [Token], unit: [Token], filter: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
-        let numberString = number.map { $0.lemma }.joined(separator: " ")
+        let numberString = number.joinedLemmas()
 
         guard let number = Float(numberString) else {
             throw ProviderError.invalidNumber(numberString)
         }
 
-        let unitString = unit.isEmpty
-            ? nil
-            : unit.map { $0.lemma }.joined(separator: " ")
+        let unitString = unit.isEmpty ? nil : unit.joinedLemmas()
 
         return Node(label: .number(number, unit: unitString))
     }
