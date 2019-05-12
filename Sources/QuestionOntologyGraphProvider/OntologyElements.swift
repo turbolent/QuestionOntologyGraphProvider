@@ -234,61 +234,66 @@ final class QuestionOntologyElements<Mappings>
         )
     }
 
-    func findNamedProperties(name: [Token]) -> OrderedSet<OntologyProperty<Mappings>> {
+    func findNamedProperties<S>(name: S)
+        -> OrderedSet<OntologyProperty<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
         return OrderedSet(
             namedPropertyInstruction.match(name)
         )
     }
 
-    func findInverseProperties(name: [Token]) -> OrderedSet<OntologyProperty<Mappings>> {
+    func findInverseProperties<S>(name: S)
+        -> OrderedSet<OntologyProperty<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
         return OrderedSet(
             inversePropertyInstruction.match(name)
         )
     }
 
-    func findAdjectiveProperties(name: [Token]) -> OrderedSet<OntologyProperty<Mappings>> {
+    func findAdjectiveProperties<S>(name: S)
+        -> OrderedSet<OntologyProperty<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
         return OrderedSet(
             adjectivePropertyInstruction.match(name)
         )
     }
 
-    func findValueProperties(name: [Token])
+    func findValueProperties<S>(name: S)
         -> OrderedSet<ValueProperty<Mappings>>
+        where S: Sequence, S.Element == Token
     {
         return OrderedSet(
             valuePropertyInstruction.match(name)
         )
     }
 
-    func findComparativeProperties(name: [Token])
+    func findComparativeProperties<S>(name: S)
         -> OrderedSet<ComparativeProperty<Mappings>>
+        where S: Sequence, S.Element == Token
     {
         return OrderedSet(
             comparativePropertyInstruction.match(name)
         )
     }
 
-    private static func dropInitialDeterminer(name: [Token]) -> ArraySlice<Token> {
-        if let first = name.first, first.tag == "DT" {
-            return name.dropFirst()
-        } else {
-            return ArraySlice(name)
-        }
-    }
-
-    func findNamedClasses(name: [Token]) -> OrderedSet<OntologyClass<Mappings>> {
+    func findNamedClasses<S>(name: S)
+        -> OrderedSet<OntologyClass<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
         return OrderedSet(
-            namedClassInstruction.match(
-                QuestionOntologyElements.dropInitialDeterminer(name: name)
-            )
+            namedClassInstruction.match(name)
         )
     }
 
-    func findRelations(name: [Token]) -> OrderedSet<DirectedProperty<Mappings>> {
+    func findRelations<S>(name: S)
+        -> OrderedSet<DirectedProperty<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
         return OrderedSet(
-            relationInstruction.match(
-                QuestionOntologyElements.dropInitialDeterminer(name: name)
-            )
+            relationInstruction.match(name)
         )
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 import QuestionCompiler
 import QuestionParser
 import QuestionOntology
+import OrderedSet
 
 
 public enum ProviderError: Error {
@@ -211,8 +212,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
         if case let .named(subject) = context.subject {
 
-            let directedProperties = ontologyElements
-                .findRelations(name: subject + context.filter)
+            let directedProperties = findRelations(name: subject + context.filter)
 
             if !directedProperties.isEmpty {
                 return Edge(disjunction: directedProperties.map { directedProperty in
@@ -236,7 +236,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         // 2. a single edge or disjunction of edges to the node
 
         // find class and create instance-of edge
-        let classes = ontologyElements.findNamedClasses(name: name)
+        let classes = findNamedClasses(name: name)
 
         guard !classes.isEmpty else {
             throw ProviderError.notAvailable
@@ -246,7 +246,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             try .isA(ontology, $0)
         })
 
-        let directedProperties = ontologyElements.findRelations(name: name)
+        let directedProperties = findRelations(name: name)
 
         guard !directedProperties.isEmpty else {
             throw ProviderError.notAvailable
@@ -265,7 +265,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         // find class and create instance-of node
 
-        let classes = ontologyElements.findNamedClasses(name: name)
+        let classes = findNamedClasses(name: name)
 
         if !classes.isEmpty {
             return env.newNode()
@@ -313,5 +313,23 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func isDisjunction(property: [Token], filter: [Token]) -> Bool {
         return property.isEmpty
             && filter.allSatisfy { $0.tag == "IN" }
+    }
+
+    private func dropInitialDeterminer(name: [Token]) -> ArraySlice<Token> {
+        guard let first = name.first, first.tag == "DT" else {
+            return ArraySlice(name)
+        }
+
+        return name.dropFirst()
+    }
+
+    private func findNamedClasses(name: [Token]) -> OrderedSet<OntologyClass<Mappings>> {
+        let name = dropInitialDeterminer(name: name)
+        return ontologyElements.findNamedClasses(name: name)
+    }
+
+    private func findRelations(name: [Token]) -> OrderedSet<DirectedProperty<Mappings>> {
+        let name = dropInitialDeterminer(name: name)
+        return ontologyElements.findRelations(name: name)
     }
 }
