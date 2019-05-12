@@ -238,62 +238,55 @@ final class QuestionOntologyElements<Mappings>
         -> OrderedSet<OntologyProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            namedPropertyInstruction.match(name)
-        )
+        let matchResult = namedPropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findInverseProperties<S>(name: S)
         -> OrderedSet<OntologyProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            inversePropertyInstruction.match(name)
-        )
+        let matchResult = inversePropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findAdjectiveProperties<S>(name: S)
         -> OrderedSet<OntologyProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            adjectivePropertyInstruction.match(name)
-        )
+        let matchResult = adjectivePropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findValueProperties<S>(name: S)
         -> OrderedSet<ValueProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            valuePropertyInstruction.match(name)
-        )
+        let matchResult = valuePropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findComparativeProperties<S>(name: S)
         -> OrderedSet<ComparativeProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            comparativePropertyInstruction.match(name)
-        )
+        let matchResult = comparativePropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findNamedClasses<S>(name: S)
         -> OrderedSet<OntologyClass<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            namedClassInstruction.match(name)
-        )
+        let matchResult = namedClassInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findRelations<S>(name: S)
         -> OrderedSet<DirectedProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
-        return OrderedSet(
-            relationInstruction.match(name)
-        )
+        let matchResult = relationInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
     }
 }
