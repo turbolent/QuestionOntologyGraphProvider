@@ -418,4 +418,109 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         diffedAssertEqual([expected], result)
     }
+
+    func testQ13() throws {
+
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("places", "NNS", "place")]),
+                    property: .withFilter(
+                        name: [],
+                        filter: .withModifier(
+                            modifier: [t("in", "IN", "in")],
+                            value: .named([t("Berlin", "NNP", "berlin")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let Place = testQuestionOntology.classes["Place"]!
+        let hasLocation = testQuestionOntology.properties["hasLocation"]!
+
+        let env = newEnv()
+
+        let place = try env.newNode()
+            .isA(testQuestionOntology, Place)
+
+        let berlin = try env.newNode()
+            .hasLabel(testQuestionOntology, "Berlin")
+
+        let expected = place
+            .outgoing(hasLocation, berlin)
+
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ14() throws {
+
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("people", "NNS", "people")]),
+                    property: .withFilter(
+                        name: [],
+                        filter: .withModifier(
+                            modifier: [t("from", "IN", "from")],
+                            value: .named([t("Berlin", "NNP", "berlin")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let hasPlaceOfBirth = testQuestionOntology.properties["hasPlaceOfBirth"]!
+
+        let env = newEnv()
+
+        let person = try env.newNode()
+            .isA(testQuestionOntology, Person)
+
+        let berlin = try env.newNode()
+            .hasLabel(testQuestionOntology, "Berlin")
+
+        let expected = person
+            .outgoing(hasPlaceOfBirth, berlin)
+
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ15() throws {
+
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("cities", "NNS", "city")]),
+                    property: .withFilter(
+                        name: [],
+                        filter: .withModifier(
+                            modifier: [t("in", "IN", "in")],
+                            value: .named([t("Canada", "NNP", "canada")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let City = testQuestionOntology.classes["City"]!
+        let hasLocation = testQuestionOntology.properties["hasLocation"]!
+
+        let env = newEnv()
+
+        let city = try env.newNode()
+            .isA(testQuestionOntology, City)
+
+        let canada = try env.newNode()
+            .hasLabel(testQuestionOntology, "Canada")
+
+        let expected = city
+            .outgoing(hasLocation, canada)
+
+        diffedAssertEqual([expected], result)
+    }
 }

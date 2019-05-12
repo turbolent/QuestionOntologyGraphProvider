@@ -69,7 +69,7 @@ public extension Edge {
             Labels == HighLevelLabels<M>
     {
         guard let instanceProperty = ontology.instanceProperty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
         return .outgoing(instanceProperty, `class`)
     }
@@ -80,7 +80,7 @@ public extension Edge {
             Labels == HighLevelLabels<M>
     {
         guard let labelProperty = ontology.labelProperty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
         return .outgoing(labelProperty, .string(label))
     }

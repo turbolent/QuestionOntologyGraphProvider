@@ -148,7 +148,7 @@ final class QuestionOntologyElements<Mappings>
             guard
                 let property = ontology.properties[propertyIdentifier]
             else {
-                throw Error.invalidPropertyIdentifier(propertyIdentifier)
+                throw OntologyError.invalidPropertyIdentifier(propertyIdentifier)
             }
 
             let directedProperty: DirectedProperty<Mappings>
@@ -165,7 +165,9 @@ final class QuestionOntologyElements<Mappings>
         return try compilePatternInstruction(patternsAndResults:
             try ontology.classes.values
                 .flatMap { `class` -> [(AnyPattern, DirectedProperty<Mappings>)] in
-                    let directedPropertyPatterns = try `class`.relations.map(asDirectedProperty)
+                    let directedPropertyPatterns =
+                        try `class`.allRelations(in: ontology)
+                            .map(asDirectedProperty)
 
                     return `class`.patterns.flatMap { classPattern in
                         directedPropertyPatterns.map {

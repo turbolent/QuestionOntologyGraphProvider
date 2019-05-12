@@ -4,14 +4,13 @@ import QuestionParser
 import QuestionOntology
 
 
-public enum Error: Swift.Error {
+public enum ProviderError: Error {
     case notAvailable
     case invalidNumber(String)
-    case invalidPropertyIdentifier(String)
 }
 
 
-extension Error: LocalizedError {
+extension ProviderError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
@@ -19,8 +18,25 @@ extension Error: LocalizedError {
             return "not available"
         case let .invalidNumber(number):
             return "not a valid number: \(number)"
+        }
+    }
+}
+
+
+public enum OntologyError: Error {
+    case invalidPropertyIdentifier(String)
+    case invalidClassIdentifier(String)
+}
+
+
+extension OntologyError: LocalizedError {
+
+    public var errorDescription: String? {
+        switch self {
         case let .invalidPropertyIdentifier(identifier):
             return "invalid property: \(identifier)"
+        case let .invalidClassIdentifier(identifier):
+            return "invalid class: \(identifier)"
         }
     }
 }
@@ -67,7 +83,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         -> QuestionOntologyGraphProvider.Edge
     {
         guard let personEdge = personEdge else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
         return personEdge
     }
@@ -82,7 +98,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let properties = ontologyElements.findNamedProperties(name: name)
 
         guard !properties.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         return Edge(disjunction: properties.map {
@@ -101,7 +117,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let properties = ontologyElements.findInverseProperties(name: name)
 
         guard !properties.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         return Edge(disjunction: properties.map {
@@ -120,7 +136,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             .findAdjectiveProperties(name: name + context.filter)
 
         guard !properties.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         return Edge(disjunction: properties.map {
@@ -140,7 +156,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             .findComparativeProperties(name: name + context.filter)
 
         guard !results.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         return Edge(disjunction: results.map { result in
@@ -205,7 +221,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             }
         }
 
-        throw Error.notAvailable
+        throw ProviderError.notAvailable
     }
 
     public func makeRelationshipEdge(
@@ -223,7 +239,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let classes = ontologyElements.findNamedClasses(name: name)
 
         guard !classes.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         let instanceEdge = Edge(disjunction: try classes.map {
@@ -233,7 +249,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let directedProperties = ontologyElements.findRelations(name: name)
 
         guard !directedProperties.isEmpty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         let relationshipEdge =
@@ -271,7 +287,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         throws -> QuestionOntologyGraphProvider.Node
     {
         guard let labelProperty = ontology.labelProperty else {
-            throw Error.notAvailable
+            throw ProviderError.notAvailable
         }
 
         return env.newNode()
@@ -284,7 +300,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let numberString = number.map { $0.lemma }.joined(separator: " ")
 
         guard let number = Float(numberString) else {
-            throw Error.invalidNumber(numberString)
+            throw ProviderError.invalidNumber(numberString)
         }
 
         let unitString = unit.isEmpty
