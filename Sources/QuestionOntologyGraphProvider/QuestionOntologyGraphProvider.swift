@@ -162,8 +162,9 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
         return Edge(disjunction: results.map { result in
 
-            let otherValue = env.newNode()
-                .incoming(node, result.property)
+            let otherValue = context.valueIsNumber
+                ? node
+                : env.newNode().incoming(node, result.property)
 
             let filter: GraphFilter<Labels>
             switch result.comparison {

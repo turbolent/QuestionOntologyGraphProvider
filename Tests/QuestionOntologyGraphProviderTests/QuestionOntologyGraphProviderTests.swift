@@ -523,4 +523,73 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         diffedAssertEqual([expected], result)
     }
+
+    func testQ16() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .relationship(
+                    .named([t("cities", "NNS", "city")]),
+                    .named([t("Berlin", "NNP", "berlin")]),
+                    token: t("'s", "POS", "'s")
+                )
+            )
+        )
+
+        let City = testQuestionOntology.classes["City"]!
+        let hasLocation = testQuestionOntology.properties["hasLocation"]!
+
+        let env = newEnv()
+
+        let berlin = try env.newNode()
+            .hasLabel(testQuestionOntology, "Berlin")
+
+        let expected = try env.newNode()
+            .isA(testQuestionOntology, City)
+            .outgoing(hasLocation, berlin)
+
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ17() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .person(
+                .adjectiveWithFilter(
+                    name: [
+                        t("is", "VBZ", "be"),
+                        t("old", "JJ", "old"),
+                    ],
+                    filter: .withComparativeModifier(
+                        modifier: [
+                            t("more", "JJR", "more"),
+                            t("than", "IN", "than"),
+                        ],
+                        value: .numberWithUnit(
+                            [t("42", "CD", "42")],
+                            unit: [t("years", "NNS", "year")]
+                        )
+                    )
+                )
+            )
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let hasAge = testQuestionOntology.properties["hasAge"]!
+
+        let env = newEnv()
+
+        let person = try env.newNode()
+            .isA(testQuestionOntology, Person)
+
+        let age = env.newNode()
+            .filtered(.greaterThan(Node(label: .number(42, unit: "year"))))
+
+        let expected = person
+            .outgoing(hasAge, age)
+
+        diffedAssertEqual([expected], result)
+    }
+
+
 }
