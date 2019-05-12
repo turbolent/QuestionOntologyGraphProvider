@@ -276,9 +276,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
         // fall back to labeled node
 
-        let nameString = name
-            .map { $0.word }
-            .joined(separator: " ")
+        let nameString = name.joinedWords
 
         return try labeled(label: nameString, env: env)
     }
@@ -297,13 +295,13 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func makeNumberNode(number: [Token], unit: [Token], filter: [Token], env: Env)
         throws -> QuestionOntologyGraphProvider.Node
     {
-        let numberString = number.joinedLemmas()
+        let numberString = number.joinedLemmas
 
         guard let number = Float(numberString) else {
             throw ProviderError.invalidNumber(numberString)
         }
 
-        let unitString = unit.isEmpty ? nil : unit.joinedLemmas()
+        let unitString = unit.isEmpty ? nil : unit.joinedLemmas
 
         return Node(label: .number(number, unit: unitString))
     }
