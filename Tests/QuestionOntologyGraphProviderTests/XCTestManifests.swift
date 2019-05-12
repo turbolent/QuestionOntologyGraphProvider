@@ -6,11 +6,18 @@ extension QuestionOntologyGraphProviderTests {
     //   `swift test --generate-linuxmain`
     // to regenerate.
     static let __allTests__QuestionOntologyGraphProviderTests = [
+        ("testQ10", testQ10),
+        ("testQ11", testQ11),
+        ("testQ12", testQ12),
         ("testQ1", testQ1),
         ("testQ2", testQ2),
         ("testQ3", testQ3),
         ("testQ4", testQ4),
         ("testQ5", testQ5),
+        ("testQ6", testQ6),
+        ("testQ7", testQ7),
+        ("testQ8", testQ8),
+        ("testQ9", testQ9),
     ]
 }
 

@@ -174,26 +174,38 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         let results = ontologyElements
             .findValueProperties(name: name + context.filter)
 
-        guard !results.isEmpty else {
-            throw Error.notAvailable
+        if !results.isEmpty {
+            return Edge(disjunction: results.map { result in
+                var node = node
+
+                switch result.comparison {
+                case nil:
+                    break
+                case .lessThan?:
+                    node = env.newNode()
+                        .filtered(.lessThan(node))
+                case .greaterThan?:
+                    node = env.newNode()
+                        .filtered(.greaterThan(node))
+                }
+
+                return .outgoing(result.property, node)
+            })
         }
 
-        return Edge(disjunction: results.map { result in
-            var node = node
+        if case let .named(subject) = context.subject {
 
-            switch result.comparison {
-            case nil:
-                break
-            case .lessThan?:
-                node = env.newNode()
-                    .filtered(.lessThan(node))
-            case .greaterThan?:
-                node = env.newNode()
-                    .filtered(.greaterThan(node))
+            let directedProperties = ontologyElements
+                .findRelations(name: subject + context.filter)
+
+            if !directedProperties.isEmpty {
+                return Edge(disjunction: directedProperties.map { directedProperty in
+                    directedProperty.edge(node: node)
+                })
             }
+        }
 
-            return .outgoing(result.property, node)
-        })
+        throw Error.notAvailable
     }
 
     public func makeRelationshipEdge(
@@ -218,7 +230,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             try .isA(ontology, $0)
         })
 
-        let directedProperties = ontologyElements.findRelationships(name: name)
+        let directedProperties = ontologyElements.findRelations(name: name)
 
         guard !directedProperties.isEmpty else {
             throw Error.notAvailable

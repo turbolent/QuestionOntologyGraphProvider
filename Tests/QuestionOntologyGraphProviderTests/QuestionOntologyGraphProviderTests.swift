@@ -381,4 +381,41 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
 
         diffedAssertEqual([expected], result)
     }
+
+    func testQ12() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([
+                        t("the", "DT", "the"),
+                        t("wife", "NN", "wife")
+                    ]),
+                    property: .withFilter(
+                        name: [],
+                        filter: .withModifier(
+                            modifier: [t("of", "IN", "of")],
+                            value: .named([t("Obama", "NNP", "obama")])
+                        )
+                    )
+                )
+            )
+        )
+
+        let Wife = testQuestionOntology.classes["Wife"]!
+        let hasSpouse = testQuestionOntology.properties["hasSpouse"]!
+
+        let env = newEnv()
+
+        let wife = try env.newNode()
+            .isA(testQuestionOntology, Wife)
+
+        let obama = try env.newNode()
+            .hasLabel(testQuestionOntology, "Obama")
+
+        let expected = wife
+            .outgoing(hasSpouse, obama)
+
+        diffedAssertEqual([expected], result)
+    }
 }
