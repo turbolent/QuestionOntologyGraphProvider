@@ -373,6 +373,15 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
 
     private func findRelations(name: [Token]) -> OrderedSet<DirectedProperty<Mappings>> {
         let name = dropInitialDeterminer(name: name)
-        return ontologyElements.findRelations(name: name)
+
+        let adjectivePrefixes = ontologyElements.findAdjectivePrefix(name: name)
+
+        let suffixes = adjectivePrefixes.isEmpty
+            ? [ArraySlice(name)]
+            : adjectivePrefixes.map { name.dropFirst($0.length) }
+
+        return OrderedSet(suffixes.flatMap {
+            ontologyElements.findRelations(name: $0)
+        })
     }
 }
