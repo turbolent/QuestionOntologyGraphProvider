@@ -237,15 +237,10 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         // 2. a single edge or disjunction of edges to the node
 
         // find class and create instance-of edge
-        let classes = findNamedClasses(name: name)
 
-        guard !classes.isEmpty else {
+        guard let classEdge = try getClassEdge(name: name, env: env) else {
             throw ProviderError.notAvailable
         }
-
-        let instanceEdge = Edge(disjunction: try classes.map {
-            try .isA(ontology, $0)
-        })
 
         let directedProperties = findRelations(name: name)
 
@@ -258,7 +253,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                 directedProperty.edge(node: node)
             })
 
-        return .conjunction([instanceEdge, relationshipEdge])
+        return .conjunction([classEdge, relationshipEdge])
     }
 
     public func makeValueNode(name: [Token], filter _: [Token], env: Env)
@@ -266,13 +261,8 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     {
         // find class and create instance-of node
 
-        let classes = findNamedClasses(name: name)
-
-        if !classes.isEmpty {
-            return env.newNode()
-                .and(Edge(disjunction: try classes.map {
-                    try .isA(ontology, $0)
-                }))
+        if let classEdge = try getClassEdge(name: name, env: env) {
+            return env.newNode().and(classEdge)
         }
 
         // fall back to labeled node
@@ -320,9 +310,65 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         return name.dropFirst()
     }
 
-    private func findNamedClasses(name: [Token]) -> OrderedSet<OntologyClass<Mappings>> {
+    private struct AdjectiveEdge: Hashable {
+        let edge: Edge<HighLevelLabels<Mappings>>
+        let remainder: ArraySlice<Token>
+    }
+
+    private func getAdjectiveEdges(name: ArraySlice<Token>, env: Env)
+        -> [AdjectiveEdge]
+    {
+        return ontologyElements.findAdjectivePrefix(name: name).map { match in
+            var node = env.newNode()
+            if let order = match.adjectivePrefix.order {
+                let graphOrder: GraphOrder
+                switch order {
+                case .ascending:
+                    graphOrder = .ascending
+                case .descending:
+                    graphOrder = .descending
+                }
+                node = node.ordered(graphOrder)
+            }
+
+            return AdjectiveEdge(
+                edge: .outgoing(match.adjectivePrefix.property, node),
+                remainder: name.dropFirst(match.length)
+            )
+        }
+    }
+
+    private func getClassEdge(name: [Token], env: Env)
+        throws -> Edge<HighLevelLabels<Mappings>>?
+    {
         let name = dropInitialDeterminer(name: name)
-        return ontologyElements.findNamedClasses(name: name)
+
+        let adjectiveEdges = getAdjectiveEdges(name: name, env: env)
+
+        let suffixes = adjectiveEdges.isEmpty
+            ? [ArraySlice(name)]
+            : adjectiveEdges.map { $0.remainder }
+
+        let classes = OrderedSet(suffixes.flatMap {
+            ontologyElements.findNamedClasses(name: $0)
+        })
+
+        guard !classes.isEmpty else {
+            return nil
+        }
+
+        let instanceEdge = Edge(disjunction: try classes.map {
+            try .isA(ontology, $0)
+        })
+
+        if adjectiveEdges.isEmpty {
+            return instanceEdge
+        } else {
+            return .conjunction([
+                instanceEdge,
+                Edge(disjunction: adjectiveEdges.map { $0.edge })
+            ])
+        }
     }
 
     private func findRelations(name: [Token]) -> OrderedSet<DirectedProperty<Mappings>> {

@@ -591,5 +591,60 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         diffedAssertEqual([expected], result)
     }
 
+    func testQ18() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .named([
+                    t("dead", "JJ", "dead"),
+                    t("people", "NN", "people")
+                ])
+            )
+        )
+
+        let Person = testQuestionOntology.classes["Person"]!
+        let died = testQuestionOntology.properties["died"]!
+
+        let env = newEnv()
+
+        let diedEdge: Edge =
+            .outgoing(died, env.newNode())
+
+        let person = try env.newNode()
+            .isA(testQuestionOntology, Person)
+
+        let expected = person
+            .and(diedEdge)
+
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ19() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .named([
+                    t("oldest", "JJS", "old"),
+                    t("woman", "NN", "woman")
+                ])
+            )
+        )
+
+        let Female = testQuestionOntology.classes["Female"]!
+        let hasAge = testQuestionOntology.properties["hasAge"]!
+
+        let env = newEnv()
+
+        let age = env.newNode()
+            .ordered(.descending)
+
+        let person = try env.newNode()
+            .isA(testQuestionOntology, Female)
+
+        let expected = person
+            .outgoing(hasAge, age)
+
+        diffedAssertEqual([expected], result)
+    }
 
 }
