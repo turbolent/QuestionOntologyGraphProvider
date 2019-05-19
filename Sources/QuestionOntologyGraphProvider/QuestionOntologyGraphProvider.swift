@@ -253,7 +253,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                 directedProperty.edge(node: node)
             })
 
-        return .conjunction([classEdge, relationshipEdge])
+        return Edge(conjunction: [classEdge, relationshipEdge])
     }
 
     public func makeValueNode(name: [Token], filter _: [Token], env: Env)
@@ -364,7 +364,7 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         if adjectiveEdges.isEmpty {
             return instanceEdge
         } else {
-            return .conjunction([
+            return Edge(conjunction: [
                 instanceEdge,
                 Edge(disjunction: adjectiveEdges.map { $0.edge })
             ])
