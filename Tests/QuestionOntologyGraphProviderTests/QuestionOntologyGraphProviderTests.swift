@@ -724,6 +724,50 @@ final class QuestionOntologyGraphProviderTests: XCTestCase {
         let expected = city
             .outgoing(hasLocation, canada)
 
+        diffedAssertEqual([expected], result)
+    }
+
+    func testQ22() throws {
+        let compiler = try newCompiler()
+        let result = try compiler.compile(
+            question: .other(
+                .withProperty(
+                    .named([t("cities", "NNS", "city")]),
+                    property: .inverseWithFilter(
+                        name: [
+                            t("live", "VBP", "live"),
+                            t("in", "IN", "in")
+                        ],
+                        filter: .withComparativeModifier(
+                            modifier: [
+                                t("more", "JJR", "more"),
+                                t("than", "IN", "than")
+                            ],
+                            value: .numberWithUnit(
+                                [
+                                    t("100000", "CD", "100000"),
+                                ],
+                                unit: [t("people", "NNS", "people")]
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        let City = testQuestionOntology.classes["City"]!
+        let populates = testQuestionOntology.properties["populates"]!
+
+        let env = newEnv()
+
+        let city = try env.newNode()
+            .isA(testQuestionOntology, City)
+
+        let population = env.newNode()
+            .filtered(.greaterThan(Node(label: .number(100000.0, unit: "people"))))
+
+        let expected = city
+            .incoming(population, populates)
 
         diffedAssertEqual([expected], result)
     }

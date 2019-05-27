@@ -110,19 +110,36 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
     public func makeInversePropertyEdge(
         name: [Token],
         node: QuestionOntologyGraphProvider.Node,
-        context _: EdgeContext,
+        context: EdgeContext,
         env: Env
     )
         throws -> QuestionOntologyGraphProvider.Edge
     {
-        let properties = ontologyElements.findInverseProperties(name: name)
+        let results = ontologyElements.findInverseProperties(name: name + context.filter)
 
-        guard !properties.isEmpty else {
+        guard !results.isEmpty else {
             throw ProviderError.notAvailable
         }
 
-        return Edge(disjunction: properties.map {
-            .incoming(node, $0)
+        return Edge(disjunction: results.map { result in
+            var node = node
+
+            let otherValue = context.valueIsNumber
+                ? node
+                : env.newNode().incoming(node, result.property)
+
+            switch result.comparison {
+            case nil:
+                break
+            case .lessThan?:
+                node = env.newNode()
+                    .filtered(.lessThan(otherValue))
+            case .greaterThan?:
+                node = env.newNode()
+                    .filtered(.greaterThan(otherValue))
+            }
+
+            return .incoming(node, result.property)
         })
     }
 
@@ -130,54 +147,35 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         name: [Token],
         node: QuestionOntologyGraphProvider.Node,
         context: EdgeContext,
-        env _: Env
+        env: Env
     ) throws -> QuestionOntologyGraphProvider.Edge {
 
-        let properties = ontologyElements
-            .findAdjectiveProperties(name: name + context.filter)
-
-        guard !properties.isEmpty else {
-            throw ProviderError.notAvailable
-        }
-
-        return Edge(disjunction: properties.map {
-            .outgoing($0, node)
-        })
-    }
-
-    public func makeComparativePropertyEdge(
-        name: [Token],
-        node: QuestionOntologyGraphProvider.Node,
-        context: EdgeContext,
-        env: Env
-    )
-        throws -> QuestionOntologyGraphProvider.Edge
-    {
         let results = ontologyElements
-            .findComparativeProperties(name: name + context.filter)
+            .findAdjectiveProperties(name: name + context.filter)
 
         guard !results.isEmpty else {
             throw ProviderError.notAvailable
         }
 
         return Edge(disjunction: results.map { result in
+            var node = node
 
             let otherValue = context.valueIsNumber
                 ? node
                 : env.newNode().incoming(node, result.property)
 
-            let filter: GraphFilter<Labels>
             switch result.comparison {
-            case .greaterThan:
-                filter = .greaterThan(otherValue)
-            case .lessThan:
-                filter = .lessThan(otherValue)
+            case nil:
+                break
+            case .lessThan?:
+                node = env.newNode()
+                    .filtered(.lessThan(otherValue))
+            case .greaterThan?:
+                node = env.newNode()
+                    .filtered(.greaterThan(otherValue))
             }
 
-            let value = env.newNode()
-                .filtered(filter)
-
-            return .outgoing(result.property, value)
+            return .outgoing(result.property, node)
         })
     }
 
@@ -196,15 +194,19 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             return Edge(disjunction: results.map { result in
                 var node = node
 
+                let otherValue = context.valueIsNumber
+                    ? node
+                    : env.newNode().incoming(node, result.property)
+
                 switch result.comparison {
                 case nil:
                     break
                 case .lessThan?:
                     node = env.newNode()
-                        .filtered(.lessThan(node))
+                        .filtered(.lessThan(otherValue))
                 case .greaterThan?:
                     node = env.newNode()
-                        .filtered(.greaterThan(node))
+                        .filtered(.greaterThan(otherValue))
                 }
 
                 return .outgoing(result.property, node)

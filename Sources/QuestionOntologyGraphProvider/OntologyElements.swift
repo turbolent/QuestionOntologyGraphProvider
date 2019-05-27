@@ -6,21 +6,12 @@ import Regex
 import OrderedSet
 
 
-struct ValueProperty<Mappings>: Hashable
+struct ComparableProperty<Mappings>: Hashable
     where Mappings: OntologyMappings
 {
     let property: OntologyProperty<Mappings>
     let comparison: Comparison?
 }
-
-
-struct ComparativeProperty<Mappings>: Hashable
-    where Mappings: OntologyMappings
-{
-    let property: OntologyProperty<Mappings>
-    let comparison: Comparison
-}
-
 
 struct AdjectivePrefix<Mappings>: Hashable
     where Mappings: OntologyMappings
@@ -37,6 +28,13 @@ struct AdjectivePrefixMatch<Mappings>: Hashable
     let length: Int
 }
 
+func beAdjective(lemma: String) -> AnyPattern {
+    return AnyPattern(
+        Patterns.be ~
+            pattern(lemma: lemma, tag: .adjective)
+    )
+}
+
 
 final class QuestionOntologyElements<Mappings>
     where Mappings: OntologyMappings
@@ -50,19 +48,16 @@ final class QuestionOntologyElements<Mappings>
         TokenInstruction<Token, Property>
 
     private let inversePropertyInstruction:
-        TokenInstruction<Token, Property>
+        TokenInstruction<Token, ComparableProperty<Mappings>>
 
     private let valuePropertyInstruction:
-        TokenInstruction<Token, ValueProperty<Mappings>>
+        TokenInstruction<Token, ComparableProperty<Mappings>>
 
     private let adjectivePropertyInstruction:
-        TokenInstruction<Token, Property>
+        TokenInstruction<Token, ComparableProperty<Mappings>>
 
     private let adjectivePrefixInstruction:
         TokenInstruction<Token, AdjectivePrefix<Mappings>>
-
-    private let comparativePropertyInstruction:
-        TokenInstruction<Token, ComparativeProperty<Mappings>>
 
     private let namedClassInstruction:
         TokenInstruction<Token, Class>
@@ -87,28 +82,60 @@ final class QuestionOntologyElements<Mappings>
         inversePropertyInstruction =
             try QuestionOntologyElements
                 .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._inverse(pattern) = propertyPattern else {
+                    switch propertyPattern {
+                    case let ._inverse(pattern, nil):
+                        return (
+                            pattern,
+                            ComparableProperty(
+                                property: property,
+                                comparison: nil
+                            )
+                        )
+                    case let ._inverse(pattern, ._named(filter)?):
+                        return (
+                            .sequence(pattern ~ filter),
+                            ComparableProperty(
+                                property: property,
+                                comparison: nil
+                            )
+                        )
+                    case let ._inverse(pattern, ._comparative(filter, comparison)?):
+                        return (
+                            .sequence(pattern ~ filter),
+                            ComparableProperty(
+                                property: property,
+                                comparison: comparison
+                            )
+                        )
+                    default:
                         return nil
                     }
-                    return (pattern, property)
                 }
 
         valuePropertyInstruction =
             try QuestionOntologyElements
                 .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
                     switch propertyPattern {
-                    case let ._value(pattern):
+                    case let ._value(pattern, nil):
                         return (
                             pattern,
-                            ValueProperty(
+                            ComparableProperty(
                                 property: property,
                                 comparison: nil
                             )
                         )
-                    case let ._comparative(pattern, comparison):
+                    case let ._value(pattern, ._named(filter)?):
                         return (
-                            pattern,
-                            ValueProperty(
+                            .sequence(pattern ~ filter),
+                            ComparableProperty(
+                                property: property,
+                                comparison: nil
+                            )
+                        )
+                    case let ._value(pattern, ._comparative(filter, comparison)?):
+                        return (
+                            .sequence(pattern ~ filter),
+                            ComparableProperty(
                                 property: property,
                                 comparison: comparison
                             )
@@ -121,23 +148,43 @@ final class QuestionOntologyElements<Mappings>
         adjectivePropertyInstruction =
             try QuestionOntologyElements
                 .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._adjective(lemma) = propertyPattern else {
+                    switch propertyPattern {
+                    case let ._adjective(lemma, nil):
+                        return (
+                            beAdjective(lemma: lemma),
+                            ComparableProperty(
+                                property: property,
+                                comparison: nil
+                            )
+                        )
+                    case let ._adjective(lemma, ._named(filter)?):
+                        return (
+                            .sequence(beAdjective(lemma: lemma) ~ filter),
+                            ComparableProperty(
+                                property: property,
+                                comparison: nil
+                            )
+                        )
+                    case let ._adjective(lemma, ._comparative(filter, comparison)?):
+                        return (
+                            .sequence(beAdjective(lemma: lemma) ~ filter),
+                            ComparableProperty(
+                                property: property,
+                                comparison: comparison
+                            )
+                        )
+                    default:
                         return nil
                     }
-
-                    // NOTE: prefix with be/VB
-                    let fullPattern = AnyPattern(
-                        Patterns.be ~
-                            pattern(lemma: lemma, tag: .adjective)
-                    )
-                    return (fullPattern, property)
                 }
 
         adjectivePrefixInstruction =
             try QuestionOntologyElements
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
+                .compilePropertyPatternInstruction(ontology: ontology, checkEnd: false) {
+                    property, propertyPattern in
+
                     switch propertyPattern {
-                    case let ._adjective(lemma):
+                    case let ._adjective(lemma, filter: nil):
                         return (
                             AnyPattern(
                                 pattern(
@@ -168,22 +215,6 @@ final class QuestionOntologyElements<Mappings>
                     }
                 }
 
-        comparativePropertyInstruction =
-            try QuestionOntologyElements
-                .compilePropertyPatternInstruction(ontology: ontology) { property, propertyPattern in
-                    guard case let ._comparative(pattern, comparison) = propertyPattern else {
-                        return nil
-                    }
-
-                return (
-                    pattern,
-                    ComparativeProperty(
-                        property: property,
-                        comparison: comparison
-                    )
-                )
-            }
-
         namedClassInstruction =
             try QuestionOntologyElements
                 .compileClassPatternInstruction(ontology: ontology) {
@@ -191,7 +222,7 @@ final class QuestionOntologyElements<Mappings>
                         return nil
                     }
                     return pattern
-            }
+                }
 
         relationInstruction =
             try QuestionOntologyElements
@@ -222,7 +253,7 @@ final class QuestionOntologyElements<Mappings>
             return (relation.pattern, directedProperty)
         }
 
-        return try compilePatternInstruction(patternsAndResults:
+        let patternsAndResults =
             try ontology.classes.values
                 .flatMap { `class` -> [(AnyPattern, DirectedProperty<Mappings>)] in
                     let directedPropertyPatterns =
@@ -246,22 +277,29 @@ final class QuestionOntologyElements<Mappings>
                         }
                     }
                 }
+
+        return try compilePatternInstruction(
+            patternsAndResults: patternsAndResults,
+            checkEnd: true
         )
     }
 
     private static func compilePropertyPatternInstruction<Result>(
         ontology: Ontology,
+        checkEnd: Bool = true,
         mapping: (Property, PropertyPattern) -> (AnyPattern, Result)?
     )
         throws -> TokenInstruction<Token, Result>
         where Result: Hashable
     {
-        return try compilePatternInstruction(patternsAndResults:
-            ontology.properties.values.flatMap { property in
-                property.patterns.compactMap { pattern in
-                    mapping(property, pattern)
-                }
-            }
+        return try compilePatternInstruction(
+            patternsAndResults:
+                ontology.properties.values.flatMap { property in
+                    property.patterns.compactMap { pattern in
+                        mapping(property, pattern)
+                    }
+                },
+            checkEnd: checkEnd
         )
     }
 
@@ -271,25 +309,32 @@ final class QuestionOntologyElements<Mappings>
     )
         throws -> TokenInstruction<Token, Class>
     {
-        return try compilePatternInstruction(patternsAndResults:
-            ontology.classes.values
-                .flatMap { `class` in
-                    `class`.patterns
-                        .compactMap(filter)
-                        .map { ($0, `class`) }
-            }
+        return try compilePatternInstruction(
+            patternsAndResults:
+                ontology.classes.values
+                    .flatMap { `class` in
+                        `class`.patterns
+                            .compactMap(filter)
+                            .map { ($0, `class`) }
+                },
+            checkEnd: true
         )
     }
 
     private static func compilePatternInstruction<Result>(
-        patternsAndResults: [(pattern: AnyPattern, result: Result)]
+        patternsAndResults: [(pattern: AnyPattern, result: Result)],
+        checkEnd: Bool
     )
         throws -> TokenInstruction<Token, Result>
         where Result: Hashable
     {
         return compile(
             instructions: try patternsAndResults.map {
-                try $0.compile(tokenType: Token.self, result: $1)
+                try $0.compile(
+                    tokenType: Token.self,
+                    result: $1,
+                    checkEnd: checkEnd
+                )
             }
         )
     }
@@ -302,8 +347,16 @@ final class QuestionOntologyElements<Mappings>
         return OrderedSet(matchResult.map { $0.result })
     }
 
+    func findValueProperties<S>(name: S)
+        -> OrderedSet<ComparableProperty<Mappings>>
+        where S: Sequence, S.Element == Token
+    {
+        let matchResult = valuePropertyInstruction.match(name)
+        return OrderedSet(matchResult.map { $0.result })
+    }
+
     func findInverseProperties<S>(name: S)
-        -> OrderedSet<Property>
+        -> OrderedSet<ComparableProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
         let matchResult = inversePropertyInstruction.match(name)
@@ -311,7 +364,7 @@ final class QuestionOntologyElements<Mappings>
     }
 
     func findAdjectiveProperties<S>(name: S)
-        -> OrderedSet<Property>
+        -> OrderedSet<ComparableProperty<Mappings>>
         where S: Sequence, S.Element == Token
     {
         let matchResult = adjectivePropertyInstruction.match(name)
@@ -329,22 +382,6 @@ final class QuestionOntologyElements<Mappings>
                 length: $0.length
             )
         })
-    }
-
-    func findValueProperties<S>(name: S)
-        -> OrderedSet<ValueProperty<Mappings>>
-        where S: Sequence, S.Element == Token
-    {
-        let matchResult = valuePropertyInstruction.match(name)
-        return OrderedSet(matchResult.map { $0.result })
-    }
-
-    func findComparativeProperties<S>(name: S)
-        -> OrderedSet<ComparativeProperty<Mappings>>
-        where S: Sequence, S.Element == Token
-    {
-        let matchResult = comparativePropertyInstruction.match(name)
-        return OrderedSet(matchResult.map { $0.result })
     }
 
     func findNamedClasses<S>(name: S)
