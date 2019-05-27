@@ -107,24 +107,17 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
         })
     }
 
-    public func makeInversePropertyEdge(
-        name: [Token],
+    private static func makeComparablePropertiesEdge(
+        results: OrderedSet<ComparableProperty<Mappings>>,
         node: QuestionOntologyGraphProvider.Node,
-        context: EdgeContext,
-        env: Env
-    )
-        throws -> QuestionOntologyGraphProvider.Edge
-    {
-        let results = ontologyElements.findInverseProperties(name: name + context.filter)
-
-        guard !results.isEmpty else {
-            throw ProviderError.notAvailable
-        }
-
+        valueIsNumber: Bool,
+        env: Env,
+        inverse: Bool
+    ) -> QuestionOntologyGraphProvider.Edge {
         return Edge(disjunction: results.map { result in
             var node = node
 
-            let otherValue = context.valueIsNumber
+            let otherValue = valueIsNumber
                 ? node
                 : env.newNode().incoming(node, result.property)
 
@@ -139,8 +132,33 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
                     .filtered(.greaterThan(otherValue))
             }
 
-            return .incoming(node, result.property)
+            return inverse
+                ? .incoming(node, result.property)
+                : .outgoing(result.property, node)
         })
+    }
+
+    public func makeInversePropertyEdge(
+        name: [Token],
+        node: QuestionOntologyGraphProvider.Node,
+        context: EdgeContext,
+        env: Env
+    )
+        throws -> QuestionOntologyGraphProvider.Edge
+    {
+        let results = ontologyElements.findInverseProperties(name: name + context.filter)
+
+        guard !results.isEmpty else {
+            throw ProviderError.notAvailable
+        }
+
+        return QuestionOntologyGraphProvider<Mappings>.makeComparablePropertiesEdge(
+            results: results,
+            node: node,
+            valueIsNumber: context.valueIsNumber,
+            env: env,
+            inverse: true
+        )
     }
 
     public func makeAdjectivePropertyEdge(
@@ -157,26 +175,13 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             throw ProviderError.notAvailable
         }
 
-        return Edge(disjunction: results.map { result in
-            var node = node
-
-            let otherValue = context.valueIsNumber
-                ? node
-                : env.newNode().incoming(node, result.property)
-
-            switch result.comparison {
-            case nil:
-                break
-            case .lessThan?:
-                node = env.newNode()
-                    .filtered(.lessThan(otherValue))
-            case .greaterThan?:
-                node = env.newNode()
-                    .filtered(.greaterThan(otherValue))
-            }
-
-            return .outgoing(result.property, node)
-        })
+        return QuestionOntologyGraphProvider<Mappings>.makeComparablePropertiesEdge(
+            results: results,
+            node: node,
+            valueIsNumber: context.valueIsNumber,
+            env: env,
+            inverse: false
+        )
     }
 
     public func makeValuePropertyEdge(
@@ -191,26 +196,13 @@ public final class QuestionOntologyGraphProvider<Mappings>: GraphProvider
             .findValueProperties(name: name + context.filter)
 
         if !results.isEmpty {
-            return Edge(disjunction: results.map { result in
-                var node = node
-
-                let otherValue = context.valueIsNumber
-                    ? node
-                    : env.newNode().incoming(node, result.property)
-
-                switch result.comparison {
-                case nil:
-                    break
-                case .lessThan?:
-                    node = env.newNode()
-                        .filtered(.lessThan(otherValue))
-                case .greaterThan?:
-                    node = env.newNode()
-                        .filtered(.greaterThan(otherValue))
-                }
-
-                return .outgoing(result.property, node)
-            })
+            return QuestionOntologyGraphProvider<Mappings>.makeComparablePropertiesEdge(
+                results: results,
+                node: node,
+                valueIsNumber: context.valueIsNumber,
+                env: env,
+                inverse: false
+            )
         }
 
         if case let .named(subject) = context.subject {
